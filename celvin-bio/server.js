@@ -689,7 +689,12 @@ async function save(){
   if(r.ok){const t=document.getElementById("toast");t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2500)}
 }
 
-updBg();renderB();renderPlatformPicker();renderSocialList();
+// Migrate old format links
+links=links.map(function(l){if(l.platform)return l;return{platform:l.icon||"link",username:l.label||"",custom_url:l.url||""};});
+try{updBg();}catch(e){}
+try{renderB();}catch(e){}
+try{renderPlatformPicker();}catch(e){}
+try{renderSocialList();}catch(e){console.error("renderSocialList error:",e);}
 </script>
 </body></html>`);
 });
