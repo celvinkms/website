@@ -284,6 +284,9 @@ input:checked+.sl::before{transform:translateX(18px);background:var(--a)}
 .tpl-line{height:3px;border-radius:999px;}
 .tpl-btn{width:100%;height:8px;border:1px solid;border-radius:4px;}
 .tpl-card span{display:block;text-align:center;padding:6px 4px;}
+/* Upload button */
+.upload-btn{background:var(--s2);border:1px solid var(--b2);border-radius:10px;color:var(--t);font-family:'Space Mono',monospace;font-size:12px;padding:8px 14px;cursor:pointer;transition:border-color .2s,background .2s;white-space:nowrap;}
+.upload-btn:hover{border-color:var(--a);background:color-mix(in srgb,var(--a) 8%,transparent);}
 /* Link styles preview */
 .ls-preview{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 .ls-opt{padding:8px 14px;border-radius:8px;border:1px solid var(--b2);font-size:12px;font-family:'Space Mono',monospace;cursor:pointer;transition:all .15s;color:var(--m);background:transparent;}
@@ -347,10 +350,18 @@ input:checked+.sl::before{transform:translateX(18px);background:var(--a)}
     <div class="r2">
       <div class="fi"><label>Typ</label><select id="avatar_type" onchange="toggleAv()">
         <option value="emoji" ${c.avatar_type==="emoji"?"selected":""}>Emoji</option>
-        <option value="image" ${c.avatar_type==="image"?"selected":""}>Bild URL</option>
+        <option value="image" ${c.avatar_type==="image"?"selected":""}>Bild</option>
       </select></div>
       <div class="fi" id="ef" style="${c.avatar_type==="image"?"display:none":""}"><label>Emoji</label><input type="text" id="avatar_emoji" value="${c.avatar_emoji||"🖤"}"></div>
-      <div class="fi" id="uf" style="${c.avatar_type!=="image"?"display:none":""}"><label>Bild URL</label><input type="url" id="avatar_url" value="${c.avatar_url||""}" placeholder="https://..."></div>
+      <div class="fi" id="uf" style="${c.avatar_type!=="image"?"display:none":""}">
+        <label>Profilbild</label>
+        <input type="file" id="avatar_file" accept="image/*" style="display:none" onchange="handleImgUpload(this,'avatar_url','avatar_preview','avatar_filename')">
+        <button type="button" class="upload-btn" onclick="document.getElementById('avatar_file').click()">📁 Datei wählen</button>
+        <span id="avatar_filename" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--m);margin-left:8px;">${c.avatar_url?"Bild gesetzt ✓":"Keine Datei"}</span>
+        <img id="avatar_preview" src="${c.avatar_url||""}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;margin-top:8px;border:1px solid var(--b2);display:${c.avatar_url?"block":"none"}">
+        <input type="hidden" id="avatar_url" value="${c.avatar_url||""}">
+        <div style="margin-top:6px;"><input type="url" id="avatar_url_text" placeholder="...oder URL eingeben" value="${c.avatar_url&&!c.avatar_url.startsWith("data:")?c.avatar_url:""}" oninput="document.getElementById('avatar_url').value=this.value;document.getElementById('avatar_preview').src=this.value;document.getElementById('avatar_preview').style.display=this.value?'block':'none';" style="width:100%;"></div>
+      </div>
     </div>
 
     <p class="st">Avatar Rahmen</p>
@@ -424,7 +435,14 @@ input:checked+.sl::before{transform:translateX(18px);background:var(--a)}
       </div>
     </div>
     <div id="bgf-image" style="${c.bg_type!=="image"?"display:none":""}">
-      <div class="fi"><label>Bild URL</label><input type="url" id="bg_image_url" value="${c.bg_image_url||""}" placeholder="https://..."></div>
+      <div class="fi"><label>Hintergrundbild</label>
+        <input type="file" id="bg_file" accept="image/*" style="display:none" onchange="handleImgUpload(this,'bg_image_url','bg_preview','bg_filename')">
+        <button type="button" class="upload-btn" onclick="document.getElementById('bg_file').click()">📁 Datei wählen</button>
+        <span id="bg_filename" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--m);margin-left:8px;">${c.bg_image_url?"Bild gesetzt ✓":"Keine Datei"}</span>
+        <img id="bg_preview" src="${c.bg_image_url||""}" style="width:100%;height:80px;object-fit:cover;border-radius:10px;margin-top:8px;border:1px solid var(--b2);display:${c.bg_image_url?"block":"none"}">
+        <input type="hidden" id="bg_image_url" value="${c.bg_image_url||""}">
+        <div style="margin-top:6px;"><input type="url" id="bg_url_text" placeholder="...oder URL eingeben" value="${c.bg_image_url&&!c.bg_image_url.startsWith("data:")?c.bg_image_url:""}" oninput="document.getElementById('bg_image_url').value=this.value;document.getElementById('bg_preview').src=this.value;document.getElementById('bg_preview').style.display=this.value?'block':'none';" style="width:100%;"></div>
+      </div>
     </div>
 
     <p class="st">Muster</p>
@@ -525,6 +543,45 @@ function setAB(s){
   document.querySelectorAll(".ab-opt").forEach((el,i)=>el.classList.toggle("active",["circle","rounded","square","none"][i]===s));
 }
 function toggleAv(){const t=document.getElementById("avatar_type").value;document.getElementById("ef").style.display=t==="emoji"?"":"none";document.getElementById("uf").style.display=t==="image"?"":"none"}
+function handleImgUpload(input, hiddenId, previewId, filenameId) {
+  const file = input.files[0];
+  if (!file) return;
+  const maxW = hiddenId === 'avatar_url' ? 400 : 1920;
+  const maxH = hiddenId === 'avatar_url' ? 400 : 1080;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > maxW || h > maxH) {
+        const ratio = Math.min(maxW/w, maxH/h);
+        w = Math.round(w*ratio); h = Math.round(h*ratio);
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const quality = hiddenId === 'avatar_url' ? 0.85 : 0.75;
+      const b64 = canvas.toDataURL('image/jpeg', quality);
+      document.getElementById(hiddenId).value = b64;
+      const prev = document.getElementById(previewId);
+      if (prev) { prev.src = b64; prev.style.display = 'block'; }
+      document.getElementById(filenameId).textContent = file.name + ' ✓';
+      // Set avatar_type to image if needed
+      if (hiddenId === 'avatar_url') {
+        document.getElementById('avatar_type').value = 'image';
+        document.getElementById('ef').style.display = 'none';
+        document.getElementById('uf').style.display = '';
+      }
+      // Set bg_type to image if needed
+      if (hiddenId === 'bg_image_url') {
+        document.getElementById('bg_type').value = 'image';
+        updBg();
+      }
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
 function syncH(id){document.getElementById(id+"_h").value=document.getElementById(id).value}
 function updBg(){
   const t=document.getElementById("bg_type").value;
