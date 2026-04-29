@@ -539,18 +539,20 @@ function renderB(){document.getElementById("bw").innerHTML=badges.map((b,i)=>'<s
 function addB(){const i=document.getElementById("bi"),v=i.value.trim();if(!v)return;badges.push(v);i.value="";renderB()}
 function rmB(i){badges.splice(i,1);renderB()}
 function renderL(){
-  document.getElementById("ll").innerHTML=links.map((l,i)=>`
-    <div class="li2">
-      <div class="lr1">
-        <input type="text" placeholder="Label" value="${"${l.label||""}"}" onchange="links[${i}].label=this.value">
-        <select onchange="links[${i}].icon=this.value">${IL.map(ic=>'<option value="'+ic+'" '+(l.icon===ic?'selected':'')+'>'+ic+'</option>').join("")}</select>
-        <button class="db" onclick="rmL(${i})">×</button>
-      </div>
-      <div class="lr2">
-        <input type="url" placeholder="https://..." value="${"${l.url||""}"}" onchange="links[${i}].url=this.value">
-        <div class="lcs"><input type="color" value="${"${l.color||"#ffffff"}"}" oninput="links[${i}].color=this.value" title="Farbe"></div>
-      </div>
-    </div>`).join("")
+  document.getElementById("ll").innerHTML=links.map((l,i)=>{
+    const label=(l.label||"").replace(/"/g,"&quot;");
+    const url=(l.url||"").replace(/"/g,"&quot;");
+    const color=l.color||"#ffffff";
+    const opts=IL.map(ic=>'<option value="'+ic+'" '+(l.icon===ic?'selected':'')+'>'+ic+'</option>').join("");
+    return '<div class="li2"><div class="lr1">'
+      +'<input type="text" placeholder="Label" value="'+label+'" onchange="links['+i+'].label=this.value">'
+      +'<select onchange="links['+i+'].icon=this.value">'+opts+'</select>'
+      +'<button class="db" onclick="rmL('+i+')">×</button>'
+      +'</div><div class="lr2">'
+      +'<input type="url" placeholder="https://..." value="'+url+'" onchange="links['+i+'].url=this.value">'
+      +'<div class="lcs"><input type="color" value="'+color+'" oninput="links['+i+'].color=this.value" title="Farbe"></div>'
+      +'</div></div>';
+  }).join("")
 }
 function addL(){links.push({label:"Neuer Link",url:"",icon:"link",color:"#ffffff"});renderL()}
 function rmL(i){links.splice(i,1);renderL()}
