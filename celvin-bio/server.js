@@ -136,9 +136,9 @@ function renderBioPage(c) {
   const spotify = c.spotify_url ? `<div style="margin-top:1rem"><iframe src="${c.spotify_url.replace("open.spotify.com/track","open.spotify.com/embed/track").replace("open.spotify.com/playlist","open.spotify.com/embed/playlist")}" width="100%" height="80" frameborder="0" allow="encrypted-media" style="border-radius:12px;"></iframe></div>` : "";
   const audioWidget = c.audio_url ? `
     <div class="audio-widget" id="aw">
-      <audio id="bgAudio" autoplay muted ${c.audio_loop?"loop":""} preload="auto">
+      <video id="bgAudio" autoplay muted playsinline ${c.audio_loop?"loop":""} preload="auto" style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;">
         <source src="${c.audio_url&&c.audio_url.startsWith("data:")?"/audio":c.audio_url}" type="${c.audio_url&&c.audio_url.startsWith("data:")?c.audio_url.split(";")[0].replace("data:",""):(c.audio_url||"").endsWith(".ogg")?"audio/ogg":(c.audio_url||"").endsWith(".wav")?"audio/wav":"audio/mpeg"}">
-      </audio>
+      </video>
       <div class="aw-inner">
         <button class="aw-play" id="awPlay" onclick="toggleAudio()">
           <svg id="awIconPlay" viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>
