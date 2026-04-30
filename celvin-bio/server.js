@@ -778,7 +778,7 @@ function rmSocial(i){links.splice(i,1);renderSocialList();}
 
 function handleAudioUpload(input){
   const file=input.files[0];if(!file)return;
-  if(file.size>15*1024*1024){alert("Datei zu groß! Maximal 15 MB.");return;}
+  if(file.size>1024*1024*1024){alert("Datei zu groß! Maximal 1 GB.");return;}
   const reader=new FileReader();
   reader.onload=function(e){
     document.getElementById("audio_url").value=e.target.result;
