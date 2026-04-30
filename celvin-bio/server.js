@@ -7,8 +7,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
-app.use(express.json({ limit: "200mb" }));
-app.use(express.urlencoded({ extended: true, limit: "200mb" }));
+app.use(express.json({ limit: "2gb" }));
+app.use(express.urlencoded({ extended: true, limit: "2gb" }));
 app.use(session({ secret: process.env.SESSION_SECRET || "celvin-secret-2024", resave: false, saveUninitialized: false, cookie: { maxAge: 86400000 } }));
 
 const PLATFORMS = {
@@ -870,7 +870,7 @@ function handleAudioUpload(input){
   const bar=document.getElementById("audio_bar");
   const status=document.getElementById("audio_status");
   const sizeMB=Math.round(file.size/1024/1024*10)/10;
-  if(file.size>50*1024*1024){fn.textContent="✗ Zu groß! Max 50MB (aktuell "+sizeMB+"MB)";return;}
+  if(file.size>2048*1024*1024){fn.textContent="✗ Zu groß! Max 2GB (aktuell "+sizeMB+"MB)";return;}
   fn.textContent="⏳ Wird gelesen… ("+sizeMB+" MB)";
   prog.style.display="block";bar.style.width="5%";status.textContent="Lesen…";
   const reader=new FileReader();
