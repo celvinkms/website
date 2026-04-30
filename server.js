@@ -47,7 +47,7 @@ const DEFAULT_CONFIG = {
     { platform: "instagram", username: "yourusername",custom_url: "" },
     { platform: "twitter",   username: "yourusername",custom_url: "" },
   ],
-  spotify_url: "", custom_css: "", meta_title: "", meta_description: "", views: 0, password: ""
+  spotify_url: "", audio_url: "", audio_autoplay: false, audio_loop: true, audio_volume: 0.5, audio_title: "", bg_video_url: "", bg_overlay_opacity: 0.3, bg_blur_amount: 0, card_shadow: true, show_song_widget: false, custom_css: "", meta_title: "", meta_description: "", views: 0, password: ""
 };
 
 async function initDB() {
@@ -94,7 +94,10 @@ function getLinkUrl(link) {
 function renderBioPage(c) {
   const bg = c.bg_type === "gradient"
     ? `linear-gradient(${c.bg_gradient_angle||135}deg, ${c.bg_gradient_from}, ${c.bg_gradient_to})`
-    : c.bg_type === "image" ? `url('${c.bg_image_url}') center/cover no-repeat fixed` : (c.bg_color||"#0a0a0a");
+    : c.bg_type === "image" ? `url('${c.bg_image_url}') center/cover no-repeat fixed`
+    : c.bg_type === "video" ? "transparent"
+    : (c.bg_color||"#0a0a0a");
+  const bgVideoHtml = c.bg_type === "video" && c.bg_video_url ? `<video autoplay loop muted playsinline style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;"><source src="${c.bg_video_url}"></video><div style="position:fixed;inset:0;background:rgba(0,0,0,${c.bg_overlay_opacity||0.3});z-index:-1;"></div>` : "";
   const cardBg = c.card_style==="glass" ? "rgba(255,255,255,0.06)" : c.card_style==="light" ? "rgba(255,255,255,0.96)" : "rgba(17,17,17,0.95)";
   const cardBorder = c.card_style==="glass" ? "rgba(255,255,255,0.12)" : c.card_style==="light" ? "rgba(0,0,0,0.08)" : "#1e1e1e";
   const cardBlur = c.card_blur ? "backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);" : "";
@@ -131,6 +134,56 @@ function renderBioPage(c) {
   }).join("");
 
   const spotify = c.spotify_url ? `<div style="margin-top:1rem"><iframe src="${c.spotify_url.replace("open.spotify.com/track","open.spotify.com/embed/track").replace("open.spotify.com/playlist","open.spotify.com/embed/playlist")}" width="100%" height="80" frameborder="0" allow="encrypted-media" style="border-radius:12px;"></iframe></div>` : "";
+  const audioWidget = c.audio_url ? `
+    <div class="audio-widget" id="aw">
+      <audio id="bgAudio" ${c.audio_autoplay?"autoplay":""} ${c.audio_loop?"loop":""} preload="none">
+        <source src="${c.audio_url}">
+      </audio>
+      <div class="aw-inner">
+        <button class="aw-play" id="awPlay" onclick="toggleAudio()">
+          <svg id="awIconPlay" viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="awIconPause" viewBox="0 0 24 24" fill="currentColor" width="14" height="14" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <div class="aw-info">
+          <span class="aw-title">${c.audio_title || "♫ now playing"}</span>
+          <div class="aw-bars" id="awBars">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="aw-vol">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+          <input type="range" id="awVol" min="0" max="1" step="0.05" value="${c.audio_volume||0.5}" oninput="document.getElementById('bgAudio').volume=this.value" style="width:50px;accent-color:var(--a)">
+        </div>
+      </div>
+    </div>
+    <style>
+    .audio-widget{position:fixed;bottom:1.5rem;right:1.5rem;z-index:100;animation:fu .6s cubic-bezier(.16,1,.3,1) both .3s;}
+    .aw-inner{display:flex;align-items:center;gap:10px;background:color-mix(in srgb,var(--bg,#0a0a0a) 80%,transparent);backdrop-filter:blur(12px);border:1px solid color-mix(in srgb,var(--a) 30%,transparent);border-radius:999px;padding:8px 14px;}
+    .aw-play{background:none;border:none;color:var(--a);cursor:pointer;display:flex;align-items:center;padding:0;flex-shrink:0;}
+    .aw-info{display:flex;flex-direction:column;gap:3px;}
+    .aw-title{font-family:'Space Mono',monospace;font-size:9px;color:var(--t);white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;}
+    .aw-bars{display:flex;align-items:flex-end;gap:2px;height:12px;}
+    .aw-bars span{width:2px;background:var(--a);border-radius:1px;animation:bar 0.8s ease-in-out infinite;opacity:0.7;}
+    .aw-bars span:nth-child(1){height:4px;animation-delay:0s;}
+    .aw-bars span:nth-child(2){height:10px;animation-delay:.1s;}
+    .aw-bars span:nth-child(3){height:7px;animation-delay:.2s;}
+    .aw-bars span:nth-child(4){height:12px;animation-delay:.3s;}
+    .aw-bars span:nth-child(5){height:5px;animation-delay:.4s;}
+    @keyframes bar{0%,100%{transform:scaleY(0.4)}50%{transform:scaleY(1)}}
+    .aw-bars.paused span{animation-play-state:paused;}
+    .aw-vol{display:flex;align-items:center;gap:4px;color:var(--m);}
+    input[type=range]{-webkit-appearance:none;height:3px;border-radius:2px;background:color-mix(in srgb,var(--t) 20%,transparent);outline:none;}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--a);cursor:pointer;}
+    </style>
+    <script>
+    function toggleAudio(){
+      var a=document.getElementById('bgAudio');
+      var bars=document.getElementById('awBars');
+      if(a.paused){a.play();document.getElementById('awIconPlay').style.display='none';document.getElementById('awIconPause').style.display='';bars.classList.remove('paused');}
+      else{a.pause();document.getElementById('awIconPlay').style.display='';document.getElementById('awIconPause').style.display='none';bars.classList.add('paused');}
+    }
+    document.getElementById('bgAudio').volume=${c.audio_volume||0.5};
+    <\/script>` : "";
   const patternCSS = c.bg_pattern==="dots" ? `body::after{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,${c.accent||"#c8ff00"}15 1px,transparent 1px);background-size:24px 24px;pointer-events:none;z-index:0;}`
     : c.bg_pattern==="grid" ? `body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(${c.accent||"#c8ff00"}0f 1px,transparent 1px),linear-gradient(90deg,${c.accent||"#c8ff00"}0f 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}`
     : c.bg_pattern==="lines" ? `body::after{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,${c.accent||"#c8ff00"}08 0px,${c.accent||"#c8ff00"}08 1px,transparent 1px,transparent 40px);pointer-events:none;z-index:0;}` : "";
@@ -183,7 +236,7 @@ ${patternCSS}${animBg}
 .link-btn:hover .arr{color:var(--lc,var(--a))}
 </style>${customCSS}
 </head><body>
-${particles}${glow}
+${bgVideoHtml}${particles}${glow}
 <div class="card">
   <div class="av"><div class="avi">${avatar}<div class="st"></div></div></div>
   <h1 class="name">@<span>${c.username||"username"}</span></h1>
@@ -194,7 +247,7 @@ ${particles}${glow}
   <div class="lks">${links}</div>
   ${spotify}
 </div>
-${views}
+${audioWidget}${views}
 </body></html>`;
 }
 
@@ -419,13 +472,35 @@ input:checked+.sl::before{transform:translateX(18px);background:var(--a)}
     </div>
     <div class="r2">
       <div class="fi"><label>Font</label><select id="font">
+        <optgroup label="Modern">
         <option value="Syne" ${c.font==="Syne"?"selected":""}>Syne</option>
         <option value="Inter" ${c.font==="Inter"?"selected":""}>Inter</option>
         <option value="Outfit" ${c.font==="Outfit"?"selected":""}>Outfit</option>
         <option value="DM Sans" ${c.font==="DM Sans"?"selected":""}>DM Sans</option>
+        <option value="Poppins" ${c.font==="Poppins"?"selected":""}>Poppins</option>
+        <option value="Montserrat" ${c.font==="Montserrat"?"selected":""}>Montserrat</option>
+        <option value="Space Grotesk" ${c.font==="Space Grotesk"?"selected":""}>Space Grotesk</option>
+        </optgroup>
+        <optgroup label="Display">
+        <option value="Bebas Neue" ${c.font==="Bebas Neue"?"selected":""}>Bebas Neue</option>
+        <option value="Abril Fatface" ${c.font==="Abril Fatface"?"selected":""}>Abril Fatface</option>
+        <option value="Playfair Display" ${c.font==="Playfair Display"?"selected":""}>Playfair Display</option>
         <option value="Rajdhani" ${c.font==="Rajdhani"?"selected":""}>Rajdhani</option>
         <option value="Oxanium" ${c.font==="Oxanium"?"selected":""}>Oxanium</option>
+        <option value="Exo 2" ${c.font==="Exo 2"?"selected":""}>Exo 2</option>
+        <option value="Orbitron" ${c.font==="Orbitron"?"selected":""}>Orbitron</option>
+        </optgroup>
+        <optgroup label="Mono / Code">
         <option value="Share Tech Mono" ${c.font==="Share Tech Mono"?"selected":""}>Share Tech Mono</option>
+        <option value="Space Mono" ${c.font==="Space Mono"?"selected":""}>Space Mono</option>
+        <option value="Fira Code" ${c.font==="Fira Code"?"selected":""}>Fira Code</option>
+        <option value="Press Start 2P" ${c.font==="Press Start 2P"?"selected":""}>Press Start 2P</option>
+        </optgroup>
+        <optgroup label="Friendly">
+        <option value="Comfortaa" ${c.font==="Comfortaa"?"selected":""}>Comfortaa</option>
+        <option value="Nunito" ${c.font==="Nunito"?"selected":""}>Nunito</option>
+        <option value="Quicksand" ${c.font==="Quicksand"?"selected":""}>Quicksand</option>
+        </optgroup>
       </select></div>
       <div class="fi"><label>Karten-Style</label><select id="card_style">
         <option value="dark" ${c.card_style==="dark"?"selected":""}>Dark</option>
@@ -449,6 +524,7 @@ input:checked+.sl::before{transform:translateX(18px);background:var(--a)}
       <option value="solid" ${c.bg_type==="solid"?"selected":""}>Einfarbig</option>
       <option value="gradient" ${c.bg_type==="gradient"?"selected":""}>Gradient</option>
       <option value="image" ${c.bg_type==="image"?"selected":""}>Bild</option>
+      <option value="video" ${c.bg_type==="video"?"selected":""}>Video URL</option>
     </select></div>
     <div id="bgf-solid" style="${c.bg_type!=="solid"?"display:none":""}">
       <div class="fi"><label>Farbe</label><div class="cf"><div class="cs"><input type="color" id="bg_color" value="${c.bg_color||"#0a0a0a"}" oninput="syncH('bg_color');updBg()"></div><input type="text" id="bg_color_h" value="${c.bg_color||"#0a0a0a"}" oninput="document.getElementById('bg_color').value=this.value;updBg()"></div></div>
@@ -458,6 +534,15 @@ input:checked+.sl::before{transform:translateX(18px);background:var(--a)}
         <div class="fi"><label>Von</label><div class="cf"><div class="cs"><input type="color" id="bg_gradient_from" value="${c.bg_gradient_from||"#0a0a0a"}" oninput="syncH('bg_gradient_from');updBg()"></div><input type="text" id="bg_gradient_from_h" value="${c.bg_gradient_from||"#0a0a0a"}" oninput="document.getElementById('bg_gradient_from').value=this.value;updBg()"></div></div>
         <div class="fi"><label>Nach</label><div class="cf"><div class="cs"><input type="color" id="bg_gradient_to" value="${c.bg_gradient_to||"#111827"}" oninput="syncH('bg_gradient_to');updBg()"></div><input type="text" id="bg_gradient_to_h" value="${c.bg_gradient_to||"#111827"}" oninput="document.getElementById('bg_gradient_to').value=this.value;updBg()"></div></div>
         <div class="fi"><label>Winkel (°)</label><input type="text" id="bg_gradient_angle" value="${c.bg_gradient_angle||135}" oninput="updBg()"></div>
+      </div>
+    </div>
+    <div id="bgf-video" style="${c.bg_type!=="video"?"display:none":""}">
+      <div class="fi"><label>Video URL (mp4, webm)</label><input type="url" id="bg_video_url" value="${c.bg_video_url||""}" placeholder="https://...video.mp4"></div>
+      <div class="fi"><label>Overlay Deckkraft (0=kein, 1=schwarz)</label>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="range" id="bg_overlay_opacity" min="0" max="1" step="0.05" value="${c.bg_overlay_opacity||0.3}" style="flex:1;accent-color:var(--a)">
+          <span style="font-family:monospace;font-size:12px;color:var(--m);width:30px;">${Math.round((c.bg_overlay_opacity||0.3)*100)}%</span>
+        </div>
       </div>
     </div>
     <div id="bgf-image" style="${c.bg_type!=="image"?"display:none":""}">
@@ -496,6 +581,17 @@ input:checked+.sl::before{transform:translateX(18px);background:var(--a)}
     <div class="tr"><div><div class="tl">Partikel-Hintergrund</div><div class="td">Schwebende Punkte im Hintergrund</div></div><label class="sw"><input type="checkbox" id="show_particles" ${c.show_particles?"checked":""}><span class="sl"></span></label></div>
     <div class="tr"><div><div class="tl">Cursor Glow</div><div class="td">Leuchtendes Licht folgt dem Mauszeiger</div></div><label class="sw"><input type="checkbox" id="cursor_glow" ${c.cursor_glow?"checked":""}><span class="sl"></span></label></div>
     <div class="tr"><div><div class="tl">Besucherzähler</div><div class="td">Zeigt Seitenaufrufe unten an</div></div><label class="sw"><input type="checkbox" id="show_views" ${c.show_views?"checked":""}><span class="sl"></span></label></div>
+    <p class="st">🎵 Hintergrund-Musik</p>
+    <div class="fi"><label>Audio URL (mp3, ogg, wav)</label><input type="url" id="audio_url" value="${c.audio_url||""}" placeholder="https://...song.mp3"></div>
+    <div class="fi"><label>Song Name (wird angezeigt)</label><input type="text" id="audio_title" value="${c.audio_title||""}" placeholder="♫ Song - Artist"></div>
+    <div class="fi"><label>Standard-Lautstärke (0–1)</label>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input type="range" id="audio_volume" min="0" max="1" step="0.05" value="${c.audio_volume||0.5}" style="flex:1;accent-color:var(--a)">
+        <span style="font-family:monospace;font-size:12px;color:var(--m);width:30px;">${Math.round((c.audio_volume||0.5)*100)}%</span>
+      </div>
+    </div>
+    <div class="tr"><div><div class="tl">Autoplay</div><div class="td">Startet automatisch (Browser blockieren das oft)</div></div><label class="sw"><input type="checkbox" id="audio_autoplay" ${c.audio_autoplay?"checked":""}><span class="sl"></span></label></div>
+    <div class="tr"><div><div class="tl">Loop</div><div class="td">Song wiederholt sich</div></div><label class="sw"><input type="checkbox" id="audio_loop" ${c.audio_loop!==false?"checked":""}><span class="sl"></span></label></div>
   </div>
 
   <!-- ERWEITERT -->
@@ -729,6 +825,13 @@ async function save(){
     meta_title:document.getElementById("meta_title").value,
     meta_description:document.getElementById("meta_description").value,
     custom_css:document.getElementById("custom_css").value,
+    audio_url:document.getElementById("audio_url").value,
+    audio_autoplay:document.getElementById("audio_autoplay").checked,
+    audio_loop:document.getElementById("audio_loop").checked,
+    audio_volume:parseFloat(document.getElementById("audio_volume").value||0.5),
+    audio_title:document.getElementById("audio_title").value,
+    bg_video_url:document.getElementById("bg_video_url").value,
+    bg_overlay_opacity:parseFloat(document.getElementById("bg_overlay_opacity").value||0.3),
     links,newPassword:pw
   };
   const r=await fetch("/admin/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
