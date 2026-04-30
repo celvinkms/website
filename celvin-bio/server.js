@@ -135,9 +135,14 @@ function renderBioPage(c) {
 
   const spotify = c.spotify_url ? `<div style="margin-top:1rem"><iframe src="${c.spotify_url.replace("open.spotify.com/track","open.spotify.com/embed/track").replace("open.spotify.com/playlist","open.spotify.com/embed/playlist")}" width="100%" height="80" frameborder="0" allow="encrypted-media" style="border-radius:12px;"></iframe></div>` : "";
   const audioWidget = c.audio_url ? `
+    ${c.audio_autoplay ? `
+    <div id="click-to-enter" style="position:fixed;inset:0;background:var(--bg,#0a0a0a);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity 0.4s ease;backdrop-filter:blur(10px);">
+      <span style="font-family:'Space Mono',monospace;font-size:14px;color:var(--a);animation:pulse 2s infinite;">[ click anywhere ]</span>
+      <style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}</style>
+    </div>` : ""}
     <div class="audio-widget" id="aw">
-      <video id="bgAudio" autoplay muted playsinline ${c.audio_loop?"loop":""} preload="auto" style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;">
-        <source src="${c.audio_url&&c.audio_url.startsWith("data:")?"/audio":c.audio_url}" type="${c.audio_url&&c.audio_url.startsWith("data:")?c.audio_url.split(";")[0].replace("data:",""):(c.audio_url||"").endsWith(".ogg")?"audio/ogg":(c.audio_url||"").endsWith(".wav")?"audio/wav":"audio/mpeg"}">
+      <video id="bgAudio" playsinline ${c.audio_loop?"loop":""} preload="auto" style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;">
+        <source src="${c.audio_url&&c.audio_url.startsWith("data:")?"/audio":c.audio_url}" type="${c.audio_url&&c.audio_url.startsWith("data:")?c.audio_url.split(";")[0].replace("data:",""):(c.audio_url||"").endsWith(".ogg")?"audio/ogg":(c.audio_url||"").endsWith(".wav")?"audio/wav":"audio/mp4"}">
       </video>
       <div class="aw-inner">
         <button class="aw-play" id="awPlay" onclick="toggleAudio()">
@@ -176,28 +181,26 @@ function renderBioPage(c) {
     input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--a);cursor:pointer;}
     </style>
     <script>
-    var _aud=document.getElementById('bgAudio');
-    var _bars=document.getElementById('awBars');
-    _aud.volume=${c.audio_volume||0.5};
+    var _aud = document.getElementById('bgAudio');
+    var _bars = document.getElementById('awBars');
+    var _overlay = document.getElementById('click-to-enter');
+    _aud.volume = ${c.audio_volume||0.5};
     function _setPlaying(on){document.getElementById('awIconPlay').style.display=on?'none':'';document.getElementById('awIconPause').style.display=on?'':'none';_bars.classList.toggle('paused',!on);}
     function toggleAudio(){if(_aud.paused){_aud.play().then(function(){_setPlaying(true);}).catch(function(){});}else{_aud.pause();_setPlaying(false);}}
     _aud.addEventListener('play',function(){_setPlaying(true);});
     _aud.addEventListener('pause',function(){_setPlaying(false);});
-    // Sobald Wiedergabe wirklich startet: unmuten
-    _aud.addEventListener('playing',function(){
+    ${c.audio_autoplay ? `
+    function startExperience(){
+      if(_overlay){_overlay.style.opacity='0';setTimeout(function(){_overlay.style.display='none';},400);}
       _aud.muted=false;
-      _aud.volume=${c.audio_volume||0.5};
-    },{once:true});
-    // Explizit play() aufrufen (muted, wird immer erlaubt)
-    function _startAudio(){
-      _aud.muted=true;
-      _aud.play().catch(function(){});
+      _aud.play().catch(function(e){console.log('Autoplay blockiert:',e);});
+      document.removeEventListener('click',startExperience);
     }
-    if(_aud.readyState>=2){_startAudio();}
-    else{_aud.addEventListener('canplay',_startAudio,{once:true});}
-    // Fallback falls canplay nie feuert
-    setTimeout(_startAudio,1000);
-    <\/script>` : "";
+    document.addEventListener('click',startExperience);
+    ` : `
+    _bars.classList.add('paused');
+    `}
+    </script>` : "";
   const patternCSS = c.bg_pattern==="dots" ? `body::after{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,${c.accent||"#c8ff00"}15 1px,transparent 1px);background-size:24px 24px;pointer-events:none;z-index:0;}`
     : c.bg_pattern==="grid" ? `body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(${c.accent||"#c8ff00"}0f 1px,transparent 1px),linear-gradient(90deg,${c.accent||"#c8ff00"}0f 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}`
     : c.bg_pattern==="lines" ? `body::after{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,${c.accent||"#c8ff00"}08 0px,${c.accent||"#c8ff00"}08 1px,transparent 1px,transparent 40px);pointer-events:none;z-index:0;}` : "";
