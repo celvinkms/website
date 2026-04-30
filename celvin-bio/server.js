@@ -888,6 +888,7 @@ function handleAudioUpload(input){
 }
 
 async function save(){
+  const pw=document.getElementById("newPassword").value,pw2=document.getElementById("confirmPassword").value;
   if(pw&&pw!==pw2){alert("Passwörter stimmen nicht überein!");return}
   const data={
     username:document.getElementById("username").value,
