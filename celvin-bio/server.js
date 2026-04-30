@@ -7,8 +7,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "200mb" }));
+app.use(express.urlencoded({ extended: true, limit: "200mb" }));
 app.use(session({ secret: process.env.SESSION_SECRET || "celvin-secret-2024", resave: false, saveUninitialized: false, cookie: { maxAge: 86400000 } }));
 
 const PLATFORMS = {
@@ -137,7 +137,7 @@ function renderBioPage(c) {
   const audioWidget = c.audio_url ? `
     <div class="audio-widget" id="aw">
       <audio id="bgAudio" ${c.audio_autoplay?"autoplay":""} ${c.audio_loop?"loop":""} preload="none">
-        <source src="${c.audio_url}">
+        <source src="${c.audio_url}" type="${c.audio_url&&c.audio_url.startsWith("data:")?c.audio_url.split(";")[0].replace("data:",""):(c.audio_url||"").endsWith(".ogg")?"audio/ogg":(c.audio_url||"").endsWith(".wav")?"audio/wav":"audio/mpeg"}">
       </audio>
       <div class="aw-inner">
         <button class="aw-play" id="awPlay" onclick="toggleAudio()">
