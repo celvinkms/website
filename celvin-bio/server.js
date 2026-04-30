@@ -183,15 +183,14 @@ function renderBioPage(c) {
     function toggleAudio(){if(_aud.paused){_aud.play().then(function(){_setPlaying(true);}).catch(function(){});}else{_aud.pause();_setPlaying(false);}}
     _aud.addEventListener('play',function(){_setPlaying(true);});
     _aud.addEventListener('pause',function(){_setPlaying(false);});
+    var _played=false;
     function _doPlay(){
+      if(_played)return;_played=true;
       _aud.muted=true;
       var p=_aud.play();
-      if(p!==undefined){p.then(function(){_aud.muted=false;_aud.volume=${c.audio_volume||0.5};_setPlaying(true);}).catch(function(){});}
+      if(p!==undefined){p.then(function(){_aud.muted=false;_aud.volume=${c.audio_volume||0.5};_setPlaying(true);}).catch(function(){_played=false;});}
     }
-    // Warte bis Audio wirklich abspielbereit ist
-    _aud.addEventListener('canplaythrough',function(){_doPlay();},{once:true});
     _aud.addEventListener('canplay',function(){_doPlay();},{once:true});
-    // Lade Audio explizit
     _aud.load();
     <\/script>` : "";
   const patternCSS = c.bg_pattern==="dots" ? `body::after{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,${c.accent||"#c8ff00"}15 1px,transparent 1px);background-size:24px 24px;pointer-events:none;z-index:0;}`
