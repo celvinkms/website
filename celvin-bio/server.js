@@ -136,7 +136,7 @@ function renderBioPage(c) {
   const spotify = c.spotify_url ? `<div style="margin-top:1rem"><iframe src="${c.spotify_url.replace("open.spotify.com/track","open.spotify.com/embed/track").replace("open.spotify.com/playlist","open.spotify.com/embed/playlist")}" width="100%" height="80" frameborder="0" allow="encrypted-media" style="border-radius:12px;"></iframe></div>` : "";
   const audioWidget = c.audio_url ? `
     <div class="audio-widget" id="aw">
-      <audio id="bgAudio" ${c.audio_autoplay?"autoplay":""} ${c.audio_loop?"loop":""} preload="none">
+      <audio id="bgAudio" muted ${c.audio_loop?"loop":""} preload="auto">
         <source src="${c.audio_url}" type="${c.audio_url&&c.audio_url.startsWith("data:")?c.audio_url.split(";")[0].replace("data:",""):(c.audio_url||"").endsWith(".ogg")?"audio/ogg":(c.audio_url||"").endsWith(".wav")?"audio/wav":"audio/mpeg"}">
       </audio>
       <div class="aw-inner">
@@ -183,7 +183,19 @@ function renderBioPage(c) {
     function toggleAudio(){if(_aud.paused){_aud.play().then(function(){_setPlaying(true);}).catch(function(){});}else{_aud.pause();_setPlaying(false);}}
     _aud.addEventListener('play',function(){_setPlaying(true);});
     _aud.addEventListener('pause',function(){_setPlaying(false);});
-    function _tryPlay(){_aud.play().then(function(){_setPlaying(true);}).catch(function(){function _oi(){_aud.play().then(function(){_setPlaying(true);});document.removeEventListener('click',_oi);document.removeEventListener('touchstart',_oi);}document.addEventListener('click',_oi,{once:true});document.addEventListener('touchstart',_oi,{once:true});});}
+    function _tryPlay(){
+      _aud.muted=true;
+      _aud.play().then(function(){
+        _aud.muted=false;
+        _aud.volume=${c.audio_volume||0.5};
+        _setPlaying(true);
+      }).catch(function(){
+        // absoluter fallback: auf ersten touch/click
+        function _oi(){_aud.muted=true;_aud.play().then(function(){_aud.muted=false;_aud.volume=${c.audio_volume||0.5};_setPlaying(true);});document.removeEventListener('click',_oi);document.removeEventListener('touchstart',_oi);}
+        document.addEventListener('click',_oi,{once:true});
+        document.addEventListener('touchstart',_oi,{once:true});
+      });
+    }
     if(document.readyState==='complete'){_tryPlay();}else{window.addEventListener('load',_tryPlay);}
     <\/script>` : "";
   const patternCSS = c.bg_pattern==="dots" ? `body::after{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,${c.accent||"#c8ff00"}15 1px,transparent 1px);background-size:24px 24px;pointer-events:none;z-index:0;}`
