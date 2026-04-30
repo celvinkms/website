@@ -601,13 +601,23 @@ function renderSocialList(){
             'onchange="links['+i+'].custom_url=this.value" '+
             'oninput="links['+i+'].custom_url=this.value" style="margin-top:6px;">'+
         '</div>'+
-        '<button onclick="document.getElementById(\'extra-'+i+'\').classList.toggle(\'show\')" '+
-          'style="background:none;border:none;color:var(--m);font-family:\'Space Mono\',monospace;font-size:10px;cursor:pointer;padding:4px 0;margin-top:4px;">'+
+        '<button class="si-toggle" data-idx="'+i+'" style="background:none;border:none;color:var(--m);font-family:monospace;font-size:10px;cursor:pointer;padding:4px 0;margin-top:4px;">'+
           '⚙ custom url</button>'+
       '</div>'+
       '<button class="si-del" onclick="rmSocial('+i+')">×</button>'+
     '</div>';
   }).join("");
+  setTimeout(attachSocialEvents,0);
+}
+
+function attachSocialEvents(){
+  document.querySelectorAll(".si-toggle").forEach(function(btn){
+    btn.addEventListener("click",function(){
+      var idx=btn.getAttribute("data-idx");
+      var el=document.getElementById("extra-"+idx);
+      if(el)el.classList.toggle("show");
+    });
+  });
 }
 
 function addSocial(platform){
