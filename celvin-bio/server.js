@@ -582,7 +582,16 @@ input:checked+.sl::before{transform:translateX(18px);background:var(--a)}
     <div class="tr"><div><div class="tl">Cursor Glow</div><div class="td">Leuchtendes Licht folgt dem Mauszeiger</div></div><label class="sw"><input type="checkbox" id="cursor_glow" ${c.cursor_glow?"checked":""}><span class="sl"></span></label></div>
     <div class="tr"><div><div class="tl">Besucherzähler</div><div class="td">Zeigt Seitenaufrufe unten an</div></div><label class="sw"><input type="checkbox" id="show_views" ${c.show_views?"checked":""}><span class="sl"></span></label></div>
     <p class="st">🎵 Hintergrund-Musik</p>
-    <div class="fi"><label>Audio URL (mp3, ogg, wav)</label><input type="url" id="audio_url" value="${c.audio_url||""}" placeholder="https://...song.mp3"></div>
+    <div class="fi"><label>Audio URL (mp3, ogg, wav)</label>
+      <input type="file" id="audio_file" accept=".mp3,.ogg,.wav,audio/*" style="display:none" onchange="handleAudioUpload(this)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <button type="button" class="upload-btn" onclick="document.getElementById('audio_file').click()">📁 Datei wählen</button>
+        <span id="audio_filename" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--m);">${c.audio_url&&c.audio_url.startsWith("data:")?"✓ Datei gesetzt":"Keine Datei gewählt"}</span>
+      </div>
+      <input type="hidden" id="audio_url" value="${c.audio_url||""}">
+      <div style="margin-top:4px;"><label style="margin-bottom:4px;display:block;font-size:11px;opacity:0.6;">oder direkt URL eingeben</label>
+      <input type="url" id="audio_url_text" placeholder="https://...song.mp3" value="${c.audio_url&&!c.audio_url.startsWith("data:")?c.audio_url:""}" oninput="document.getElementById('audio_url').value=this.value;document.getElementById('audio_filename').textContent=this.value?'✓ URL gesetzt':'Keine Datei gewählt';" style="width:100%;"></div>
+    </div>
     <div class="fi"><label>Song Name (wird angezeigt)</label><input type="text" id="audio_title" value="${c.audio_title||""}" placeholder="♫ Song - Artist"></div>
     <div class="fi"><label>Standard-Lautstärke (0–1)</label>
       <div style="display:flex;align-items:center;gap:10px;">
@@ -766,6 +775,18 @@ function addSocial(platform){
 }
 
 function rmSocial(i){links.splice(i,1);renderSocialList();}
+
+function handleAudioUpload(input){
+  const file=input.files[0];if(!file)return;
+  if(file.size>15*1024*1024){alert("Datei zu groß! Maximal 15 MB.");return;}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    document.getElementById("audio_url").value=e.target.result;
+    document.getElementById("audio_url_text").value="";
+    document.getElementById("audio_filename").textContent="✓ "+file.name;
+  };
+  reader.readAsDataURL(file);
+}
 
 function handleImgUpload(input,hiddenId,previewId,filenameId){
   const file=input.files[0];if(!file)return;
