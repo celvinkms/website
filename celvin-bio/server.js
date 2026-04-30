@@ -183,12 +183,20 @@ function renderBioPage(c) {
     function toggleAudio(){if(_aud.paused){_aud.play().then(function(){_setPlaying(true);}).catch(function(){});}else{_aud.pause();_setPlaying(false);}}
     _aud.addEventListener('play',function(){_setPlaying(true);});
     _aud.addEventListener('pause',function(){_setPlaying(false);});
-    // Muted autoplay läuft immer durch, nach 100ms unmuten
-    setTimeout(function(){
+    // Sobald Wiedergabe wirklich startet: unmuten
+    _aud.addEventListener('playing',function(){
       _aud.muted=false;
       _aud.volume=${c.audio_volume||0.5};
-      if(!_aud.paused){_setPlaying(true);}
-    },100);
+    },{once:true});
+    // Explizit play() aufrufen (muted, wird immer erlaubt)
+    function _startAudio(){
+      _aud.muted=true;
+      _aud.play().catch(function(){});
+    }
+    if(_aud.readyState>=2){_startAudio();}
+    else{_aud.addEventListener('canplay',_startAudio,{once:true});}
+    // Fallback falls canplay nie feuert
+    setTimeout(_startAudio,1000);
     <\/script>` : "";
   const patternCSS = c.bg_pattern==="dots" ? `body::after{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,${c.accent||"#c8ff00"}15 1px,transparent 1px);background-size:24px 24px;pointer-events:none;z-index:0;}`
     : c.bg_pattern==="grid" ? `body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(${c.accent||"#c8ff00"}0f 1px,transparent 1px),linear-gradient(90deg,${c.accent||"#c8ff00"}0f 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}`
