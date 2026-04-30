@@ -7,8 +7,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
-app.use(express.json({ limit: "200mb" }));
-app.use(express.urlencoded({ extended: true, limit: "200mb" }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(session({ secret: process.env.SESSION_SECRET || "celvin-secret-2024", resave: false, saveUninitialized: false, cookie: { maxAge: 86400000 } }));
 
 const PLATFORMS = {
@@ -537,24 +537,7 @@ input:checked+.sl::before{transform:translateX(18px);background:var(--a)}
       </div>
     </div>
     <div id="bgf-video" style="${c.bg_type!=="video"?"display:none":""}">
-      <div class="fi">
-        <label>Video hochladen oder URL eingeben</label>
-        <input type="file" id="bg_video_file" accept="video/mp4,video/webm,video/ogg" style="display:none" onchange="handleVideoUpload(this)">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-          <button type="button" class="upload-btn" onclick="document.getElementById('bg_video_file').click()">📁 Video wählen</button>
-          <span id="bg_video_filename" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--m);">${c.bg_video_url?"✓ Video gesetzt":"Keine Datei"}</span>
-        </div>
-        <div id="bg_video_progress" style="display:none;margin-bottom:10px;">
-          <div style="background:var(--bg);border:1px solid var(--b2);border-radius:999px;height:6px;overflow:hidden;">
-            <div id="bg_video_bar" style="height:100%;width:0%;background:var(--a);transition:width .3s;border-radius:999px;"></div>
-          </div>
-          <span id="bg_video_status" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--m);margin-top:4px;display:block;"></span>
-        </div>
-        <video id="bg_video_preview" src="${c.bg_video_url||""}" style="width:100%;height:80px;object-fit:cover;border-radius:10px;border:1px solid var(--b2);display:${c.bg_video_url?"block":"none"}" muted loop autoplay playsinline></video>
-        <div style="margin-top:8px;"><label style="margin-bottom:4px;display:block;font-size:11px;color:var(--m);">oder direkt eine URL eingeben (mp4, webm)</label>
-        <input type="url" id="bg_video_url" value="${c.bg_video_url&&!c.bg_video_url.startsWith("data:")?c.bg_video_url:""}" placeholder="https://...video.mp4" oninput="document.getElementById('bg_video_preview').src=this.value;document.getElementById('bg_video_preview').style.display=this.value?'block':'none';"></div>
-      </div>
-      <input type="hidden" id="bg_video_url_data" value="${c.bg_video_url&&c.bg_video_url.startsWith("data:")?c.bg_video_url:""}">
+      <div class="fi"><label>Video URL (mp4, webm)</label><input type="url" id="bg_video_url" value="${c.bg_video_url||""}" placeholder="https://...video.mp4"></div>
       <div class="fi"><label>Overlay Deckkraft (0=kein, 1=schwarz)</label>
         <div style="display:flex;align-items:center;gap:10px;">
           <input type="range" id="bg_overlay_opacity" min="0" max="1" step="0.05" value="${c.bg_overlay_opacity||0.3}" style="flex:1;accent-color:var(--a)">
@@ -599,22 +582,15 @@ input:checked+.sl::before{transform:translateX(18px);background:var(--a)}
     <div class="tr"><div><div class="tl">Cursor Glow</div><div class="td">Leuchtendes Licht folgt dem Mauszeiger</div></div><label class="sw"><input type="checkbox" id="cursor_glow" ${c.cursor_glow?"checked":""}><span class="sl"></span></label></div>
     <div class="tr"><div><div class="tl">Besucherzähler</div><div class="td">Zeigt Seitenaufrufe unten an</div></div><label class="sw"><input type="checkbox" id="show_views" ${c.show_views?"checked":""}><span class="sl"></span></label></div>
     <p class="st">🎵 Hintergrund-Musik</p>
-    <div class="fi">
-      <label>Audio Datei oder URL (mp3, ogg, wav)</label>
-      <input type="file" id="audio_file" accept="audio/mp3,audio/mpeg,audio/ogg,audio/wav" style="display:none" onchange="handleAudioUpload(this)">
+    <div class="fi"><label>Audio URL (mp3, ogg, wav)</label>
+      <input type="file" id="audio_file" accept=".mp3,.ogg,.wav,audio/*" style="display:none" onchange="handleAudioUpload(this)">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <button type="button" class="upload-btn" onclick="document.getElementById('audio_file').click()">🎵 Datei wählen</button>
-        <span id="audio_filename" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--m);">${c.audio_url&&c.audio_url.startsWith("data:")?"✓ Audio gesetzt":"Keine Datei"}</span>
+        <button type="button" class="upload-btn" onclick="document.getElementById('audio_file').click()">📁 Datei wählen</button>
+        <span id="audio_filename" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--m);">${c.audio_url&&c.audio_url.startsWith("data:")?"✓ Datei gesetzt":"Keine Datei gewählt"}</span>
       </div>
-      <div id="audio_progress" style="display:none;margin-bottom:8px;">
-        <div style="background:var(--bg);border:1px solid var(--b2);border-radius:999px;height:6px;overflow:hidden;">
-          <div id="audio_bar" style="height:100%;width:0%;background:var(--a);transition:width .3s;border-radius:999px;"></div>
-        </div>
-        <span id="audio_status" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--m);margin-top:4px;display:block;"></span>
-      </div>
-      <input type="hidden" id="audio_url_data" value="${c.audio_url&&c.audio_url.startsWith("data:")?c.audio_url:""}">
-      <label style="font-size:11px;color:var(--m);margin-bottom:4px;display:block;">oder URL eingeben</label>
-      <input type="url" id="audio_url" value="${c.audio_url&&!c.audio_url.startsWith("data:")?c.audio_url:""}" placeholder="https://...song.mp3">
+      <input type="hidden" id="audio_url" value="${c.audio_url||""}">
+      <div style="margin-top:4px;"><label style="margin-bottom:4px;display:block;font-size:11px;opacity:0.6;">oder direkt URL eingeben</label>
+      <input type="url" id="audio_url_text" placeholder="https://...song.mp3" value="${c.audio_url&&!c.audio_url.startsWith("data:")?c.audio_url:""}" oninput="document.getElementById('audio_url').value=this.value;document.getElementById('audio_filename').textContent=this.value?'✓ URL gesetzt':'Keine Datei gewählt';" style="width:100%;"></div>
     </div>
     <div class="fi"><label>Song Name (wird angezeigt)</label><input type="text" id="audio_title" value="${c.audio_title||""}" placeholder="♫ Song - Artist"></div>
     <div class="fi"><label>Standard-Lautstärke (0–1)</label>
@@ -800,6 +776,18 @@ function addSocial(platform){
 
 function rmSocial(i){links.splice(i,1);renderSocialList();}
 
+function handleAudioUpload(input){
+  const file=input.files[0];if(!file)return;
+  if(file.size>15*1024*1024){alert("Datei zu groß! Maximal 15 MB.");return;}
+  const reader=new FileReader();
+  reader.onload=function(e){
+    document.getElementById("audio_url").value=e.target.result;
+    document.getElementById("audio_url_text").value="";
+    document.getElementById("audio_filename").textContent="✓ "+file.name;
+  };
+  reader.readAsDataURL(file);
+}
+
 function handleImgUpload(input,hiddenId,previewId,filenameId){
   const file=input.files[0];if(!file)return;
   const maxW=hiddenId==="avatar_url"?400:1920,maxH=hiddenId==="avatar_url"?400:1080;
@@ -824,70 +812,8 @@ function handleImgUpload(input,hiddenId,previewId,filenameId){
   reader.readAsDataURL(file);
 }
 
-async function handleVideoUpload(input){
-  const file=input.files[0];if(!file)return;
-  const fn=document.getElementById("bg_video_filename");
-  const prog=document.getElementById("bg_video_progress");
-  const bar=document.getElementById("bg_video_bar");
-  const status=document.getElementById("bg_video_status");
-  const preview=document.getElementById("bg_video_preview");
-  const sizeMB=Math.round(file.size/1024/1024*10)/10;
-  fn.textContent="⏳ Wird hochgeladen… ("+sizeMB+" MB)";
-  prog.style.display="block";bar.style.width="2%";status.textContent="Verbinde mit Cloudinary…";
-  const fd=new FormData();
-  fd.append("file",file);
-  fd.append("upload_preset","grr");
-  try{
-    const xhr=new XMLHttpRequest();
-    xhr.open("POST","https://api.cloudinary.com/v1_1/ddoeyehbn/video/upload");
-    xhr.upload.onprogress=function(e){
-      if(e.lengthComputable){const pct=Math.round(e.loaded/e.total*95)+2;bar.style.width=pct+"%";status.textContent=pct+"% – "+Math.round(e.loaded/1024/1024*10)/10+" / "+sizeMB+" MB";}
-    };
-    xhr.onload=function(){
-      if(xhr.status===200){
-        const data=JSON.parse(xhr.responseText);
-        const url=data.secure_url;
-        document.getElementById("bg_video_url_data").value="";
-        document.getElementById("bg_video_url").value=url;
-        preview.src=url;preview.style.display="block";
-        bar.style.width="100%";status.textContent="✓ Hochgeladen!";
-        fn.textContent="✓ "+file.name;
-        setTimeout(()=>prog.style.display="none",2500);
-      }else{
-        fn.textContent="✗ Fehler beim Upload";
-        status.textContent="Cloudinary Fehler: "+xhr.status;
-      }
-    };
-    xhr.onerror=function(){fn.textContent="✗ Netzwerkfehler";prog.style.display="none";};
-    xhr.send(fd);
-  }catch(e){fn.textContent="✗ "+e.message;prog.style.display="none";}
-}
-
-function handleAudioUpload(input){
-  const file=input.files[0];if(!file)return;
-  const fn=document.getElementById("audio_filename");
-  const prog=document.getElementById("audio_progress");
-  const bar=document.getElementById("audio_bar");
-  const status=document.getElementById("audio_status");
-  const sizeMB=Math.round(file.size/1024/1024*10)/10;
-  if(file.size>50*1024*1024){fn.textContent="✗ Zu groß! Max 50MB (aktuell "+sizeMB+"MB)";return;}
-  fn.textContent="⏳ Wird gelesen… ("+sizeMB+" MB)";
-  prog.style.display="block";bar.style.width="5%";status.textContent="Lesen…";
-  const reader=new FileReader();
-  reader.onprogress=function(e){if(e.lengthComputable){const pct=Math.round(e.loaded/e.total*90)+5;bar.style.width=pct+"%";status.textContent=pct+"%";}};
-  reader.onload=function(e){
-    const b64=e.target.result;
-    document.getElementById("audio_url_data").value=b64;
-    document.getElementById("audio_url").value="";
-    bar.style.width="100%";status.textContent="✓ Fertig – beim Speichern wird der Song gesetzt";
-    fn.textContent="✓ "+file.name+" ("+sizeMB+" MB)";
-    setTimeout(()=>prog.style.display="none",3000);
-  };
-  reader.onerror=function(){fn.textContent="✗ Fehler beim Lesen";prog.style.display="none";};
-  reader.readAsDataURL(file);
-}
-
 async function save(){
+  const pw=document.getElementById("newPassword").value,pw2=document.getElementById("confirmPassword").value;
   if(pw&&pw!==pw2){alert("Passwörter stimmen nicht überein!");return}
   const data={
     username:document.getElementById("username").value,
@@ -920,12 +846,12 @@ async function save(){
     meta_title:document.getElementById("meta_title").value,
     meta_description:document.getElementById("meta_description").value,
     custom_css:document.getElementById("custom_css").value,
-    audio_url:(function(){const d=document.getElementById("audio_url_data").value;return d||document.getElementById("audio_url").value;}()),
+    audio_url:document.getElementById("audio_url").value,
     audio_autoplay:document.getElementById("audio_autoplay").checked,
     audio_loop:document.getElementById("audio_loop").checked,
     audio_volume:parseFloat(document.getElementById("audio_volume").value||0.5),
     audio_title:document.getElementById("audio_title").value,
-    bg_video_url:(function(){const d=document.getElementById("bg_video_url_data").value;return d||document.getElementById("bg_video_url").value;}()),
+    bg_video_url:document.getElementById("bg_video_url").value,
     bg_overlay_opacity:parseFloat(document.getElementById("bg_overlay_opacity").value||0.3),
     links,newPassword:pw
   };
