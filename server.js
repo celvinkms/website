@@ -614,121 +614,83 @@ function renderPlatformPicker(){
 }
 
 function renderSocialList(){
-  document.getElementById("socialList").innerHTML=links.map((l,i)=>{
-    const p=PLATFORMS[l.platform]||PLATFORMS.link;
-    const username=(l.username||"").replace(/"/g,"&quot;");
-    const customUrl=(l.custom_url||"").replace(/"/g,"&quot;");
-    return '<div class="social-item">'+
-      '<div class="si-icon" style="background:color-mix(in srgb,'+p.color+' 15%,transparent)">'+
-        '<span style="color:'+p.color+'">'+( PICONS[l.platform]||PICONS.link)+'</span>'+
-      '</div>'+
-      '<div class="si-body">'+
-        '<div class="si-platform">'+p.name+'</div>'+
-        '<input class="si-input" type="text" placeholder="'+p.placeholder+'" value="'+username+'" '+
-          'onchange="links['+i+'].username=this.value" '+
-          'oninput="links['+i+'].username=this.value">'+
-        '<div class="si-extra" id="extra-'+i+'">'+
-          '<input type="url" placeholder="Custom URL (optional)" value="'+customUrl+'" '+
-            'onchange="links['+i+'].custom_url=this.value" '+
-            'oninput="links['+i+'].custom_url=this.value" style="margin-top:6px;">'+
-        '</div>'+
-        '<button class="si-toggle" data-idx="'+i+'" style="background:none;border:none;color:var(--m);font-family:monospace;font-size:10px;cursor:pointer;padding:4px 0;margin-top:4px;">'+
-          '⚙ custom url</button>'+
-      '</div>'+
-      '<button class="si-del" onclick="rmSocial('+i+')">×</button>'+
-    '</div>';
-  }).join("");
-  setTimeout(attachSocialEvents,0);
-}
+  var container = document.getElementById("socialList");
+  if(!container) return;
+  container.innerHTML = "";
+  links.forEach(function(l, i){
+    var p = PLATFORMS[l.platform] || PLATFORMS.link;
+    var div = document.createElement("div");
+    div.className = "social-item";
 
-function attachSocialEvents(){
-  document.querySelectorAll(".si-toggle").forEach(function(btn){
-    btn.addEventListener("click",function(){
-      var idx=btn.getAttribute("data-idx");
-      var el=document.getElementById("extra-"+idx);
-      if(el)el.classList.toggle("show");
-    });
+    // Icon
+    var iconWrap = document.createElement("div");
+    iconWrap.className = "si-icon";
+    iconWrap.style.background = "color-mix(in srgb," + p.color + " 15%,transparent)";
+    iconWrap.innerHTML = '<span style="color:' + p.color + '">' + (PICONS[l.platform]||PICONS.link) + '</span>';
+    div.appendChild(iconWrap);
+
+    // Body
+    var body = document.createElement("div");
+    body.className = "si-body";
+
+    var platformLabel = document.createElement("div");
+    platformLabel.className = "si-platform";
+    platformLabel.textContent = p.name;
+    body.appendChild(platformLabel);
+
+    var usernameInput = document.createElement("input");
+    usernameInput.className = "si-input";
+    usernameInput.type = "text";
+    usernameInput.placeholder = p.placeholder;
+    usernameInput.value = l.username || "";
+    (function(idx){
+      usernameInput.addEventListener("input", function(){ links[idx].username = this.value; });
+      usernameInput.addEventListener("change", function(){ links[idx].username = this.value; });
+    })(i);
+    body.appendChild(usernameInput);
+
+    // Custom URL toggle
+    var extraDiv = document.createElement("div");
+    extraDiv.className = "si-extra";
+    extraDiv.id = "extra-" + i;
+
+    var customInput = document.createElement("input");
+    customInput.type = "url";
+    customInput.placeholder = "Custom URL (optional)";
+    customInput.value = l.custom_url || "";
+    customInput.style.marginTop = "6px";
+    (function(idx){
+      customInput.addEventListener("input", function(){ links[idx].custom_url = this.value; });
+      customInput.addEventListener("change", function(){ links[idx].custom_url = this.value; });
+    })(i);
+    extraDiv.appendChild(customInput);
+    body.appendChild(extraDiv);
+
+    var toggleBtn = document.createElement("button");
+    toggleBtn.textContent = "⚙ custom url";
+    toggleBtn.style.cssText = "background:none;border:none;color:var(--m);font-family:monospace;font-size:10px;cursor:pointer;padding:4px 0;margin-top:4px;";
+    (function(idx){
+      toggleBtn.addEventListener("click", function(){
+        var el = document.getElementById("extra-" + idx);
+        if(el) el.classList.toggle("show");
+      });
+    })(i);
+    body.appendChild(toggleBtn);
+    div.appendChild(body);
+
+    // Delete button
+    var delBtn = document.createElement("button");
+    delBtn.className = "si-del";
+    delBtn.textContent = "×";
+    (function(idx){
+      delBtn.addEventListener("click", function(){ rmSocial(idx); });
+    })(i);
+    div.appendChild(delBtn);
+
+    container.appendChild(div);
   });
 }
 
-function addSocial(platform){
-  links.push({platform,username:"",custom_url:""});
-  renderSocialList();
-  // scroll to bottom of list
-  const list=document.getElementById("socialList");
-  list.lastElementChild&&list.lastElementChild.scrollIntoView({behavior:"smooth",block:"nearest"});
-  // focus the input
-  setTimeout(()=>{
-    const inputs=list.querySelectorAll(".si-input");
-    if(inputs.length)inputs[inputs.length-1].focus();
-  },50);
-}
-
-function rmSocial(i){links.splice(i,1);renderSocialList();}
-
-function handleImgUpload(input,hiddenId,previewId,filenameId){
-  const file=input.files[0];if(!file)return;
-  const maxW=hiddenId==="avatar_url"?400:1920,maxH=hiddenId==="avatar_url"?400:1080;
-  const reader=new FileReader();
-  reader.onload=function(e){
-    const img=new Image();
-    img.onload=function(){
-      const canvas=document.createElement("canvas");
-      let w=img.width,h=img.height;
-      if(w>maxW||h>maxH){const ratio=Math.min(maxW/w,maxH/h);w=Math.round(w*ratio);h=Math.round(h*ratio);}
-      canvas.width=w;canvas.height=h;
-      canvas.getContext("2d").drawImage(img,0,0,w,h);
-      const b64=canvas.toDataURL("image/jpeg",0.85);
-      document.getElementById(hiddenId).value=b64;
-      const prev=document.getElementById(previewId);
-      if(prev){prev.src=b64;prev.style.display="block";}
-      const fn=document.getElementById(filenameId);
-      if(fn)fn.textContent="✓ "+file.name;
-    };
-    img.src=e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-async function save(){
-  const pw=document.getElementById("newPassword").value,pw2=document.getElementById("confirmPassword").value;
-  if(pw&&pw!==pw2){alert("Passwörter stimmen nicht überein!");return}
-  const data={
-    username:document.getElementById("username").value,
-    pronouns:document.getElementById("pronouns").value,
-    avatar_type:document.getElementById("avatar_type").value,
-    avatar_emoji:document.getElementById("avatar_emoji").value,
-    avatar_url:document.getElementById("avatar_url").value,
-    avatar_border:document.getElementById("avatar_border").value,
-    avatar_glow:document.getElementById("avatar_glow").checked,
-    bio:document.getElementById("bio").value,
-    badges,status:document.getElementById("status").value,
-    accent:document.getElementById("accent").value,
-    text_color:document.getElementById("text_color").value,
-    font:document.getElementById("font").value,
-    card_style:document.getElementById("card_style").value,
-    card_blur:document.getElementById("card_blur").checked,
-    link_style:document.getElementById("link_style").value,
-    bg_type:document.getElementById("bg_type").value,
-    bg_color:document.getElementById("bg_color").value,
-    bg_gradient_from:document.getElementById("bg_gradient_from").value,
-    bg_gradient_to:document.getElementById("bg_gradient_to").value,
-    bg_gradient_angle:document.getElementById("bg_gradient_angle").value,
-    bg_image_url:document.getElementById("bg_image_url").value,
-    bg_pattern:document.getElementById("bg_pattern").value,
-    bg_animated:document.getElementById("bg_animated").checked,
-    show_particles:document.getElementById("show_particles").checked,
-    cursor_glow:document.getElementById("cursor_glow").checked,
-    show_views:document.getElementById("show_views").checked,
-    spotify_url:document.getElementById("spotify_url").value,
-    meta_title:document.getElementById("meta_title").value,
-    meta_description:document.getElementById("meta_description").value,
-    custom_css:document.getElementById("custom_css").value,
-    links,newPassword:pw
-  };
-  const r=await fetch("/admin/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
-  if(r.ok){const t=document.getElementById("toast");t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2500)}
-}
 
 // Migrate old format links
 links=links.map(function(l){if(l.platform)return l;return{platform:l.icon||"link",username:l.label||"",custom_url:l.url||""};});
