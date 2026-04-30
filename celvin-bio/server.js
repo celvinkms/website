@@ -137,7 +137,7 @@ function renderBioPage(c) {
   const audioWidget = c.audio_url ? `
     <div class="audio-widget" id="aw">
       <audio id="bgAudio" autoplay muted ${c.audio_loop?"loop":""} preload="auto">
-        <source src="${c.audio_url}" type="${c.audio_url&&c.audio_url.startsWith("data:")?c.audio_url.split(";")[0].replace("data:",""):(c.audio_url||"").endsWith(".ogg")?"audio/ogg":(c.audio_url||"").endsWith(".wav")?"audio/wav":"audio/mpeg"}">
+        <source src="${c.audio_url&&c.audio_url.startsWith("data:")?"/audio":c.audio_url}" type="${c.audio_url&&c.audio_url.startsWith("data:")?c.audio_url.split(";")[0].replace("data:",""):(c.audio_url||"").endsWith(".ogg")?"audio/ogg":(c.audio_url||"").endsWith(".wav")?"audio/wav":"audio/mpeg"}">
       </audio>
       <div class="aw-inner">
         <button class="aw-play" id="awPlay" onclick="toggleAudio()">
@@ -261,6 +261,24 @@ app.get("/", async (req, res) => {
   const c = await getConfig();
   if (c.show_views) { c.views = (c.views||0)+1; await saveConfig(c); }
   res.send(renderBioPage(c));
+});
+
+// Audio-Streaming-Endpoint: liest Base64 aus DB und liefert echte Audio-Datei
+app.get("/audio", async (req, res) => {
+  const c = await getConfig();
+  if (!c.audio_url) return res.status(404).send("no audio");
+  if (c.audio_url.startsWith("data:")) {
+    const [meta, b64] = c.audio_url.split(",");
+    const mimeType = meta.replace("data:","").replace(";base64","");
+    const buf = Buffer.from(b64, "base64");
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Content-Length", buf.length);
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return res.send(buf);
+  }
+  // Externe URL: direkt weiterleiten
+  res.redirect(c.audio_url);
 });
 
 app.get("/admin", (req, res) => {
