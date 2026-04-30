@@ -183,20 +183,16 @@ function renderBioPage(c) {
     function toggleAudio(){if(_aud.paused){_aud.play().then(function(){_setPlaying(true);}).catch(function(){});}else{_aud.pause();_setPlaying(false);}}
     _aud.addEventListener('play',function(){_setPlaying(true);});
     _aud.addEventListener('pause',function(){_setPlaying(false);});
-    function _tryPlay(){
+    function _doPlay(){
       _aud.muted=true;
-      _aud.play().then(function(){
-        _aud.muted=false;
-        _aud.volume=${c.audio_volume||0.5};
-        _setPlaying(true);
-      }).catch(function(){
-        // absoluter fallback: auf ersten touch/click
-        function _oi(){_aud.muted=true;_aud.play().then(function(){_aud.muted=false;_aud.volume=${c.audio_volume||0.5};_setPlaying(true);});document.removeEventListener('click',_oi);document.removeEventListener('touchstart',_oi);}
-        document.addEventListener('click',_oi,{once:true});
-        document.addEventListener('touchstart',_oi,{once:true});
-      });
+      var p=_aud.play();
+      if(p!==undefined){p.then(function(){_aud.muted=false;_aud.volume=${c.audio_volume||0.5};_setPlaying(true);}).catch(function(){});}
     }
-    if(document.readyState==='complete'){_tryPlay();}else{window.addEventListener('load',_tryPlay);}
+    // Warte bis Audio wirklich abspielbereit ist
+    _aud.addEventListener('canplaythrough',function(){_doPlay();},{once:true});
+    _aud.addEventListener('canplay',function(){_doPlay();},{once:true});
+    // Lade Audio explizit
+    _aud.load();
     <\/script>` : "";
   const patternCSS = c.bg_pattern==="dots" ? `body::after{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,${c.accent||"#c8ff00"}15 1px,transparent 1px);background-size:24px 24px;pointer-events:none;z-index:0;}`
     : c.bg_pattern==="grid" ? `body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(${c.accent||"#c8ff00"}0f 1px,transparent 1px),linear-gradient(90deg,${c.accent||"#c8ff00"}0f 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}`
