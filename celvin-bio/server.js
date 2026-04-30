@@ -263,21 +263,39 @@ app.get("/", async (req, res) => {
   res.send(renderBioPage(c));
 });
 
-// Audio-Streaming-Endpoint: liest Base64 aus DB und liefert echte Audio-Datei
+// Audio-Streaming-Endpoint mit Range-Request-Support (wichtig für Safari + Autoplay)
 app.get("/audio", async (req, res) => {
   const c = await getConfig();
-  if (!c.audio_url) return res.status(404).send("no audio");
+  console.log("[audio] audio_url vorhanden:", !!c.audio_url, c.audio_url ? c.audio_url.substring(0,40) : "LEER");
+  if (!c.audio_url) return res.status(404).send("no audio configured");
   if (c.audio_url.startsWith("data:")) {
-    const [meta, b64] = c.audio_url.split(",");
-    const mimeType = meta.replace("data:","").replace(";base64","");
+    const commaIdx = c.audio_url.indexOf(",");
+    const meta = c.audio_url.substring(0, commaIdx);
+    const b64 = c.audio_url.substring(commaIdx + 1);
+    let mimeType = meta.replace("data:","").replace(";base64","");
+    if (mimeType === "video/mp4" || mimeType === "video/mpeg") mimeType = "audio/mp4";
     const buf = Buffer.from(b64, "base64");
+    const total = buf.length;
+    console.log("[audio] Dateigröße:", Math.round(total/1024/1024) + "MB", "MIME:", mimeType);
+    const rangeHeader = req.headers.range;
+    if (rangeHeader) {
+      const parts = rangeHeader.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : total - 1;
+      res.writeHead(206, {
+        "Content-Range": `bytes ${start}-${end}/${total}`,
+        "Accept-Ranges": "bytes",
+        "Content-Length": end - start + 1,
+        "Content-Type": mimeType,
+      });
+      return res.end(buf.slice(start, end + 1));
+    }
     res.setHeader("Content-Type", mimeType);
-    res.setHeader("Content-Length", buf.length);
+    res.setHeader("Content-Length", total);
     res.setHeader("Accept-Ranges", "bytes");
     res.setHeader("Cache-Control", "public, max-age=3600");
     return res.send(buf);
   }
-  // Externe URL: direkt weiterleiten
   res.redirect(c.audio_url);
 });
 
