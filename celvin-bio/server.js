@@ -717,9 +717,17 @@ document.addEventListener("DOMContentLoaded",function(){
 app.post("/admin/save", requireAuth, async (req, res) => {
   const current = await getConfig();
   const { newPassword, ...fields } = req.body;
+  console.log("SAVE: links received:", JSON.stringify(fields.links));
   const updated = { ...current, ...fields, password: newPassword ? await bcrypt.hash(newPassword, 10) : current.password };
+  console.log("SAVE: links to store:", JSON.stringify(updated.links));
   await saveConfig(updated);
   res.json({ ok: true });
+});
+
+// Debug endpoint
+app.get("/api/config-debug", requireAuth, async (req, res) => {
+  const c = await getConfig();
+  res.json({ links: c.links });
 });
 
 app.get("/admin/logout", (req, res) => { req.session.destroy(); res.redirect("/admin"); });
