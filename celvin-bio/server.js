@@ -527,16 +527,16 @@ const PLATFORMS = ${platformsJson};
 const TEMPLATES = ${JSON.stringify(TEMPLATES)};
 const ICONS_SVG = ${JSON.stringify(Object.fromEntries(Object.entries(PLATFORMS).map(([k])=>[k,""])))};
 
-let badges = ${JSON.stringify(c.badges||[])};
-let links = (function(){
+var badges = ${JSON.stringify(c.badges||[])};
+var links = (function(){
   var raw = ${JSON.stringify(c.links||[])};
   return raw.map(function(l){
     if(l.platform) return l;
     return {platform: l.icon||"link", username: l.label||"", custom_url: l.url||""};
   });
 })();
-let currentLS = "${c.link_style||"default"}";
-let currentAB = "${c.avatar_border||"circle"}";
+var currentLS = "${c.link_style||"default"}";
+var currentAB = "${c.avatar_border||"circle"}";
 
 const titles={templates:"Templates",profile:"Profil",design:"Design",background:"Hintergrund",links:"Socials",effects:"Effekte",advanced:"Erweitert",security:"Sicherheit"};
 
