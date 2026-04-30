@@ -824,7 +824,7 @@ function handleImgUpload(input,hiddenId,previewId,filenameId){
   reader.readAsDataURL(file);
 }
 
-function handleVideoUpload(input){
+async function handleVideoUpload(input){
   const file=input.files[0];if(!file)return;
   const fn=document.getElementById("bg_video_filename");
   const prog=document.getElementById("bg_video_progress");
@@ -832,22 +832,35 @@ function handleVideoUpload(input){
   const status=document.getElementById("bg_video_status");
   const preview=document.getElementById("bg_video_preview");
   const sizeMB=Math.round(file.size/1024/1024*10)/10;
-  if(file.size>150*1024*1024){fn.textContent="✗ Zu groß! Max 150MB (aktuell "+sizeMB+"MB)";return;}
-  fn.textContent="⏳ Wird gelesen… ("+sizeMB+" MB)";
-  prog.style.display="block";bar.style.width="5%";status.textContent="Lesen…";
-  const reader=new FileReader();
-  reader.onprogress=function(e){if(e.lengthComputable){const pct=Math.round(e.loaded/e.total*90)+5;bar.style.width=pct+"%";status.textContent=pct+"%";}};
-  reader.onload=function(e){
-    const b64=e.target.result;
-    document.getElementById("bg_video_url_data").value=b64;
-    document.getElementById("bg_video_url").value="";
-    preview.src=b64;preview.style.display="block";
-    bar.style.width="100%";status.textContent="✓ Fertig – beim Speichern wird das Video gesetzt";
-    fn.textContent="✓ "+file.name+" ("+sizeMB+" MB)";
-    setTimeout(()=>prog.style.display="none",3000);
-  };
-  reader.onerror=function(){fn.textContent="✗ Fehler beim Lesen";prog.style.display="none";};
-  reader.readAsDataURL(file);
+  fn.textContent="⏳ Wird hochgeladen… ("+sizeMB+" MB)";
+  prog.style.display="block";bar.style.width="2%";status.textContent="Verbinde mit Cloudinary…";
+  const fd=new FormData();
+  fd.append("file",file);
+  fd.append("upload_preset","grr");
+  try{
+    const xhr=new XMLHttpRequest();
+    xhr.open("POST","https://api.cloudinary.com/v1_1/ddoeyehbn/video/upload");
+    xhr.upload.onprogress=function(e){
+      if(e.lengthComputable){const pct=Math.round(e.loaded/e.total*95)+2;bar.style.width=pct+"%";status.textContent=pct+"% – "+Math.round(e.loaded/1024/1024*10)/10+" / "+sizeMB+" MB";}
+    };
+    xhr.onload=function(){
+      if(xhr.status===200){
+        const data=JSON.parse(xhr.responseText);
+        const url=data.secure_url;
+        document.getElementById("bg_video_url_data").value="";
+        document.getElementById("bg_video_url").value=url;
+        preview.src=url;preview.style.display="block";
+        bar.style.width="100%";status.textContent="✓ Hochgeladen!";
+        fn.textContent="✓ "+file.name;
+        setTimeout(()=>prog.style.display="none",2500);
+      }else{
+        fn.textContent="✗ Fehler beim Upload";
+        status.textContent="Cloudinary Fehler: "+xhr.status;
+      }
+    };
+    xhr.onerror=function(){fn.textContent="✗ Netzwerkfehler";prog.style.display="none";};
+    xhr.send(fd);
+  }catch(e){fn.textContent="✗ "+e.message;prog.style.display="none";}
 }
 
 function handleAudioUpload(input){
