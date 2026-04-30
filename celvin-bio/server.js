@@ -12,7 +12,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(session({ secret: process.env.SESSION_SECRET || "celvin-secret-2024", resave: false, saveUninitialized: false, cookie: { maxAge: 86400000 } }));
 
 const PLATFORMS = {
-  discord:   { name: "Discord",     color: "#5865F2", placeholder: "Server-Invite",  url: "https://discord.gg/{u}" },
+  discord:   { name: "Discord",     color: "#5865F2", placeholder: "username (z.B. snowtulip)", url: "", clickable: false },
   instagram: { name: "Instagram",   color: "#E1306C", placeholder: "username",        url: "https://instagram.com/{u}" },
   twitter:   { name: "Twitter / X", color: "#e8e8e8", placeholder: "username",        url: "https://x.com/{u}" },
   youtube:   { name: "YouTube",     color: "#FF0000", placeholder: "Kanalname",       url: "https://youtube.com/@{u}" },
@@ -61,7 +61,6 @@ async function initDB() {
 async function getConfig() {
   const { rows } = await pool.query("SELECT data FROM bio_config LIMIT 1");
   const data = { ...DEFAULT_CONFIG, ...(rows[0]?.data || {}) };
-  // Migrate old link format {label,url,icon} -> {platform,username,custom_url}
   if (Array.isArray(data.links)) {
     data.links = data.links.map(l => {
       if (l.platform) return l;
@@ -91,6 +90,7 @@ const ICONS = {
 function getLinkUrl(link) {
   const p = PLATFORMS[link.platform] || PLATFORMS.link;
   if (link.custom_url) return link.custom_url;
+  if (!p.url) return null;
   return p.url.replace("{u}", link.username || "");
 }
 
@@ -114,19 +114,24 @@ function renderBioPage(c) {
     const url = getLinkUrl(l);
     const display = l.username || p.name;
     const color = p.color;
-    let style = "";
-    if(linkStyle==="filled") style = `background:${color};border-color:${color};color:#000;`;
-    if(linkStyle==="neon") style = `border-color:${color};box-shadow:0 0 10px color-mix(in srgb,${color} 30%,transparent);`;
-    if(linkStyle==="pill") style = `border-radius:999px;`;
-    if(linkStyle==="minimal") style = `border-color:transparent;`;
-    return `<a href="${url}" target="_blank" class="link-btn ls-${linkStyle}" style="--lc:${color};${style}">
-      <span class="li" style="color:${linkStyle==="filled"?"#000":color}">${ICONS[l.platform]||ICONS.link}</span>
+    const isClickable = url && !p.clickable === false && url.length > 0 && !p.clickable;
+    const tag = (url && !p.clickable) ? "div" : (url ? "a" : "div");
+    const href = (tag === "a") ? `href="${url}" target="_blank"` : "";
+    const cursor = (tag === "div") ? "cursor:default;" : "";
+    let style = cursor;
+    if(linkStyle==="filled"&&tag==="a") style += `background:${color};border-color:${color};color:#000;`;
+    if(linkStyle==="neon"&&tag==="a") style += `border-color:${color};box-shadow:0 0 10px color-mix(in srgb,${color} 30%,transparent);`;
+    if(linkStyle==="pill") style += `border-radius:999px;`;
+    if(linkStyle==="minimal") style += `border-color:transparent;`;
+    const arrowHtml = (tag === "a") ? `<span class="arr">↗</span>` : "";
+    return `<${tag} ${href} class="link-btn ls-${linkStyle}" style="--lc:${color};${style}">
+      <span class="li" style="color:${linkStyle==="filled"&&tag==="a"?"#000":color}">${ICONS[l.platform]||ICONS.link}</span>
       <span class="link-label">
         <span class="link-platform">${p.name}</span>
         <span class="link-username">${display}</span>
       </span>
-      <span class="arr">↗</span>
-    </a>`;
+      ${arrowHtml}
+    </${tag}>`;
   }).join("");
 
   const spotify = c.spotify_url ? `<div style="margin-top:1rem"><iframe src="${c.spotify_url.replace("open.spotify.com/track","open.spotify.com/embed/track").replace("open.spotify.com/playlist","open.spotify.com/embed/playlist")}" width="100%" height="80" frameborder="0" allow="encrypted-media" style="border-radius:12px;"></iframe></div>` : "";
