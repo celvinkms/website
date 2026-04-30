@@ -537,7 +537,24 @@ input:checked+.sl::before{transform:translateX(18px);background:var(--a)}
       </div>
     </div>
     <div id="bgf-video" style="${c.bg_type!=="video"?"display:none":""}">
-      <div class="fi"><label>Video URL (mp4, webm)</label><input type="url" id="bg_video_url" value="${c.bg_video_url||""}" placeholder="https://...video.mp4"></div>
+      <div class="fi">
+        <label>Video hochladen oder URL eingeben</label>
+        <input type="file" id="bg_video_file" accept="video/mp4,video/webm,video/ogg" style="display:none" onchange="handleVideoUpload(this)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <button type="button" class="upload-btn" onclick="document.getElementById('bg_video_file').click()">📁 Video wählen</button>
+          <span id="bg_video_filename" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--m);">${c.bg_video_url?"✓ Video gesetzt":"Keine Datei"}</span>
+        </div>
+        <div id="bg_video_progress" style="display:none;margin-bottom:10px;">
+          <div style="background:var(--bg);border:1px solid var(--b2);border-radius:999px;height:6px;overflow:hidden;">
+            <div id="bg_video_bar" style="height:100%;width:0%;background:var(--a);transition:width .3s;border-radius:999px;"></div>
+          </div>
+          <span id="bg_video_status" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--m);margin-top:4px;display:block;"></span>
+        </div>
+        <video id="bg_video_preview" src="${c.bg_video_url||""}" style="width:100%;height:80px;object-fit:cover;border-radius:10px;border:1px solid var(--b2);display:${c.bg_video_url?"block":"none"}" muted loop autoplay playsinline></video>
+        <div style="margin-top:8px;"><label style="margin-bottom:4px;display:block;font-size:11px;color:var(--m);">oder direkt eine URL eingeben (mp4, webm)</label>
+        <input type="url" id="bg_video_url" value="${c.bg_video_url&&!c.bg_video_url.startsWith("data:")?c.bg_video_url:""}" placeholder="https://...video.mp4" oninput="document.getElementById('bg_video_preview').src=this.value;document.getElementById('bg_video_preview').style.display=this.value?'block':'none';"></div>
+      </div>
+      <input type="hidden" id="bg_video_url_data" value="${c.bg_video_url&&c.bg_video_url.startsWith("data:")?c.bg_video_url:""}">
       <div class="fi"><label>Overlay Deckkraft (0=kein, 1=schwarz)</label>
         <div style="display:flex;align-items:center;gap:10px;">
           <input type="range" id="bg_overlay_opacity" min="0" max="1" step="0.05" value="${c.bg_overlay_opacity||0.3}" style="flex:1;accent-color:var(--a)">
@@ -791,7 +808,31 @@ function handleImgUpload(input,hiddenId,previewId,filenameId){
   reader.readAsDataURL(file);
 }
 
-async function save(){
+function handleVideoUpload(input){
+  const file=input.files[0];if(!file)return;
+  const fn=document.getElementById("bg_video_filename");
+  const prog=document.getElementById("bg_video_progress");
+  const bar=document.getElementById("bg_video_bar");
+  const status=document.getElementById("bg_video_status");
+  const preview=document.getElementById("bg_video_preview");
+  const sizeMB=Math.round(file.size/1024/1024*10)/10;
+  if(file.size>150*1024*1024){fn.textContent="✗ Zu groß! Max 150MB (aktuell "+sizeMB+"MB)";return;}
+  fn.textContent="⏳ Wird gelesen… ("+sizeMB+" MB)";
+  prog.style.display="block";bar.style.width="5%";status.textContent="Lesen…";
+  const reader=new FileReader();
+  reader.onprogress=function(e){if(e.lengthComputable){const pct=Math.round(e.loaded/e.total*90)+5;bar.style.width=pct+"%";status.textContent=pct+"%";}};
+  reader.onload=function(e){
+    const b64=e.target.result;
+    document.getElementById("bg_video_url_data").value=b64;
+    document.getElementById("bg_video_url").value="";
+    preview.src=b64;preview.style.display="block";
+    bar.style.width="100%";status.textContent="✓ Fertig – beim Speichern wird das Video gesetzt";
+    fn.textContent="✓ "+file.name+" ("+sizeMB+" MB)";
+    setTimeout(()=>prog.style.display="none",3000);
+  };
+  reader.onerror=function(){fn.textContent="✗ Fehler beim Lesen";prog.style.display="none";};
+  reader.readAsDataURL(file);
+}
   const pw=document.getElementById("newPassword").value,pw2=document.getElementById("confirmPassword").value;
   if(pw&&pw!==pw2){alert("Passwörter stimmen nicht überein!");return}
   const data={
@@ -830,7 +871,7 @@ async function save(){
     audio_loop:document.getElementById("audio_loop").checked,
     audio_volume:parseFloat(document.getElementById("audio_volume").value||0.5),
     audio_title:document.getElementById("audio_title").value,
-    bg_video_url:document.getElementById("bg_video_url").value,
+    bg_video_url:(function(){const d=document.getElementById("bg_video_url_data").value;return d||document.getElementById("bg_video_url").value;}()),
     bg_overlay_opacity:parseFloat(document.getElementById("bg_overlay_opacity").value||0.3),
     links,newPassword:pw
   };
