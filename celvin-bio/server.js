@@ -58,7 +58,18 @@ async function initDB() {
     await pool.query("INSERT INTO bio_config (data) VALUES ($1)", [d]);
   }
 }
-async function getConfig() { const { rows } = await pool.query("SELECT data FROM bio_config LIMIT 1"); return { ...DEFAULT_CONFIG, ...rows[0]?.data } || DEFAULT_CONFIG; }
+async function getConfig() {
+  const { rows } = await pool.query("SELECT data FROM bio_config LIMIT 1");
+  const data = { ...DEFAULT_CONFIG, ...(rows[0]?.data || {}) };
+  // Migrate old link format {label,url,icon} -> {platform,username,custom_url}
+  if (Array.isArray(data.links)) {
+    data.links = data.links.map(l => {
+      if (l.platform) return l;
+      return { platform: l.icon || "link", username: l.label || "", custom_url: l.url || "" };
+    });
+  }
+  return data;
+}
 async function saveConfig(data) { await pool.query("UPDATE bio_config SET data = $1", [data]); }
 function requireAuth(req, res, next) { if (req.session.authenticated) return next(); res.redirect("/admin"); }
 
@@ -512,7 +523,13 @@ const TEMPLATES = ${JSON.stringify(TEMPLATES)};
 const ICONS_SVG = ${JSON.stringify(Object.fromEntries(Object.entries(PLATFORMS).map(([k])=>[k,""])))};
 
 let badges = ${JSON.stringify(c.badges||[])};
-let links = ${JSON.stringify(c.links||[])};
+let links = (function(){
+  var raw = ${JSON.stringify(c.links||[])};
+  return raw.map(function(l){
+    if(l.platform) return l;
+    return {platform: l.icon||"link", username: l.label||"", custom_url: l.url||""};
+  });
+})();
 let currentLS = "${c.link_style||"default"}";
 let currentAB = "${c.avatar_border||"circle"}";
 
@@ -576,10 +593,19 @@ function rmB(i){badges.splice(i,1);renderB()}
 
 // Platform picker
 function renderPlatformPicker(){
-  document.getElementById("platformPicker").innerHTML=Object.entries(PLATFORMS).map(([key,p])=>
-    '<button class="pp-btn" onclick="addSocial(\''+key+'\')" style="color:'+p.color+'">'+
-    (PICONS[key]||"")+'<span style="color:var(--m)">'+p.name+'</span></button>'
-  ).join("");
+  var container = document.getElementById("platformPicker");
+  if(!container) return;
+  container.innerHTML = "";
+  Object.entries(PLATFORMS).forEach(function(entry){
+    var key = entry[0], p = entry[1];
+    var btn = document.createElement("button");
+    btn.className = "pp-btn";
+    btn.setAttribute("data-platform", key);
+    btn.style.color = p.color;
+    btn.innerHTML = (PICONS[key]||"") + '<span style="color:var(--m)">' + p.name + '</span>';
+    btn.addEventListener("click", function(){ addSocial(key); });
+    container.appendChild(btn);
+  });
 }
 
 function renderSocialList(){
