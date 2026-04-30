@@ -328,15 +328,15 @@ input:checked+.sl::before{transform:translateX(18px);background:var(--a)}
 </head><body>
 <nav class="sidebar">
   <div class="logo">cel<span>vin</span>.rip</div>
-  <button class="ni active" data-section="templates"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Templates</button>
-  <button class="ni" data-section="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Profil</button>
-  <button class="ni" data-section="design"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>Design</button>
-  <button class="ni" data-section="background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Hintergrund</button>
-  <button class="ni" data-section="links"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Socials</button>
-  <button class="ni" data-section="effects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Effekte</button>
+  <button class="ni active" onclick="show('templates',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Templates</button>
+  <button class="ni" onclick="show('profile',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Profil</button>
+  <button class="ni" onclick="show('design',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>Design</button>
+  <button class="ni" onclick="show('background',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Hintergrund</button>
+  <button class="ni" onclick="show('links',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Socials</button>
+  <button class="ni" onclick="show('effects',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Effekte</button>
   <div class="ndv"></div>
-  <button class="ni" data-section="advanced"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Erweitert</button>
-  <button class="ni" data-section="security"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Sicherheit</button>
+  <button class="ni" onclick="show('advanced',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Erweitert</button>
+  <button class="ni" onclick="show('security',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Sicherheit</button>
   <div class="sf"><a href="/admin/logout" class="lb"><svg style="width:15px;height:15px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Logout</a></div>
 </nav>
 
@@ -534,11 +534,11 @@ const PICONS = {
   link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>'
 };
 
-function navTo(id){
-  document.querySelectorAll(".sec").forEach(function(s){s.classList.remove("active");});
-  document.querySelectorAll(".ni").forEach(function(b){b.classList.remove("active");});
-  var sec=document.getElementById("sec-"+id);
-  if(sec)sec.classList.add("active");
+function show(id,btn){
+  document.querySelectorAll(".sec").forEach(s=>s.classList.remove("active"));
+  document.querySelectorAll(".ni").forEach(b=>b.classList.remove("active"));
+  document.getElementById("sec-"+id).classList.add("active");
+  btn.classList.add("active");
   document.getElementById("pt").textContent=titles[id]||id;
 }
 
@@ -601,23 +601,13 @@ function renderSocialList(){
             'onchange="links['+i+'].custom_url=this.value" '+
             'oninput="links['+i+'].custom_url=this.value" style="margin-top:6px;">'+
         '</div>'+
-        '<button class="si-toggle" data-idx="'+i+'" style="background:none;border:none;color:var(--m);font-family:monospace;font-size:10px;cursor:pointer;padding:4px 0;margin-top:4px;">'+
+        '<button onclick="document.getElementById(\'extra-'+i+'\').classList.toggle(\'show\')" '+
+          'style="background:none;border:none;color:var(--m);font-family:\'Space Mono\',monospace;font-size:10px;cursor:pointer;padding:4px 0;margin-top:4px;">'+
           '⚙ custom url</button>'+
       '</div>'+
       '<button class="si-del" onclick="rmSocial('+i+')">×</button>'+
     '</div>';
   }).join("");
-  setTimeout(attachSocialEvents,0);
-}
-
-function attachSocialEvents(){
-  document.querySelectorAll(".si-toggle").forEach(function(btn){
-    btn.addEventListener("click",function(){
-      var idx=btn.getAttribute("data-idx");
-      var el=document.getElementById("extra-"+idx);
-      if(el)el.classList.toggle("show");
-    });
-  });
 }
 
 function addSocial(platform){
@@ -699,24 +689,7 @@ async function save(){
   if(r.ok){const t=document.getElementById("toast");t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2500)}
 }
 
-// Migrate old format links
-links=links.map(function(l){if(l.platform)return l;return{platform:l.icon||"link",username:l.label||"",custom_url:l.url||""};});
-
-// Navigation via event delegation
-document.addEventListener("DOMContentLoaded",function(){
-  document.querySelectorAll(".ni[data-section]").forEach(function(btn){
-    btn.addEventListener("click",function(){
-      var id=btn.getAttribute("data-section");
-      navTo(id);
-      document.querySelectorAll(".ni").forEach(function(b){b.classList.remove("active");});
-      btn.classList.add("active");
-    });
-  });
-  try{updBg();}catch(e){}
-  try{renderB();}catch(e){}
-  try{renderPlatformPicker();}catch(e){}
-  try{renderSocialList();}catch(e){console.error(e);}
-});
+updBg();renderB();renderPlatformPicker();renderSocialList();
 </script>
 </body></html>`);
 });
