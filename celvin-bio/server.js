@@ -151,8 +151,8 @@ function renderBioPage(c) {
           </div>
         </div>
         <div class="aw-vol">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
-          <input type="range" id="awVol" min="0" max="1" step="0.05" value="${c.audio_volume||0.5}" oninput="document.getElementById('bgAudio').volume=this.value" style="width:50px;accent-color:var(--a)">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+          <input type="range" id="awVol" min="0" max="1" step="0.05" value="${c.audio_volume||0.5}" oninput="document.getElementById('bgAudio').volume=this.value" style="width:90px;accent-color:var(--a)">
         </div>
       </div>
     </div>
@@ -176,13 +176,15 @@ function renderBioPage(c) {
     input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--a);cursor:pointer;}
     </style>
     <script>
-    function toggleAudio(){
-      var a=document.getElementById('bgAudio');
-      var bars=document.getElementById('awBars');
-      if(a.paused){a.play();document.getElementById('awIconPlay').style.display='none';document.getElementById('awIconPause').style.display='';bars.classList.remove('paused');}
-      else{a.pause();document.getElementById('awIconPlay').style.display='';document.getElementById('awIconPause').style.display='none';bars.classList.add('paused');}
-    }
-    document.getElementById('bgAudio').volume=${c.audio_volume||0.5};
+    var _aud=document.getElementById('bgAudio');
+    var _bars=document.getElementById('awBars');
+    _aud.volume=${c.audio_volume||0.5};
+    function _setPlaying(on){document.getElementById('awIconPlay').style.display=on?'none':'';document.getElementById('awIconPause').style.display=on?'':'none';_bars.classList.toggle('paused',!on);}
+    function toggleAudio(){if(_aud.paused){_aud.play().then(function(){_setPlaying(true);}).catch(function(){});}else{_aud.pause();_setPlaying(false);}}
+    _aud.addEventListener('play',function(){_setPlaying(true);});
+    _aud.addEventListener('pause',function(){_setPlaying(false);});
+    function _tryPlay(){_aud.play().then(function(){_setPlaying(true);}).catch(function(){function _oi(){_aud.play().then(function(){_setPlaying(true);});document.removeEventListener('click',_oi);document.removeEventListener('touchstart',_oi);}document.addEventListener('click',_oi,{once:true});document.addEventListener('touchstart',_oi,{once:true});});}
+    if(document.readyState==='complete'){_tryPlay();}else{window.addEventListener('load',_tryPlay);}
     <\/script>` : "";
   const patternCSS = c.bg_pattern==="dots" ? `body::after{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,${c.accent||"#c8ff00"}15 1px,transparent 1px);background-size:24px 24px;pointer-events:none;z-index:0;}`
     : c.bg_pattern==="grid" ? `body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(${c.accent||"#c8ff00"}0f 1px,transparent 1px),linear-gradient(90deg,${c.accent||"#c8ff00"}0f 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}`
