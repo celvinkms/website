@@ -599,7 +599,23 @@ input:checked+.sl::before{transform:translateX(18px);background:var(--a)}
     <div class="tr"><div><div class="tl">Cursor Glow</div><div class="td">Leuchtendes Licht folgt dem Mauszeiger</div></div><label class="sw"><input type="checkbox" id="cursor_glow" ${c.cursor_glow?"checked":""}><span class="sl"></span></label></div>
     <div class="tr"><div><div class="tl">Besucherzähler</div><div class="td">Zeigt Seitenaufrufe unten an</div></div><label class="sw"><input type="checkbox" id="show_views" ${c.show_views?"checked":""}><span class="sl"></span></label></div>
     <p class="st">🎵 Hintergrund-Musik</p>
-    <div class="fi"><label>Audio URL (mp3, ogg, wav)</label><input type="url" id="audio_url" value="${c.audio_url||""}" placeholder="https://...song.mp3"></div>
+    <div class="fi">
+      <label>Audio Datei oder URL (mp3, ogg, wav)</label>
+      <input type="file" id="audio_file" accept="audio/mp3,audio/mpeg,audio/ogg,audio/wav" style="display:none" onchange="handleAudioUpload(this)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <button type="button" class="upload-btn" onclick="document.getElementById('audio_file').click()">🎵 Datei wählen</button>
+        <span id="audio_filename" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--m);">${c.audio_url&&c.audio_url.startsWith("data:")?"✓ Audio gesetzt":"Keine Datei"}</span>
+      </div>
+      <div id="audio_progress" style="display:none;margin-bottom:8px;">
+        <div style="background:var(--bg);border:1px solid var(--b2);border-radius:999px;height:6px;overflow:hidden;">
+          <div id="audio_bar" style="height:100%;width:0%;background:var(--a);transition:width .3s;border-radius:999px;"></div>
+        </div>
+        <span id="audio_status" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--m);margin-top:4px;display:block;"></span>
+      </div>
+      <input type="hidden" id="audio_url_data" value="${c.audio_url&&c.audio_url.startsWith("data:")?c.audio_url:""}">
+      <label style="font-size:11px;color:var(--m);margin-bottom:4px;display:block;">oder URL eingeben</label>
+      <input type="url" id="audio_url" value="${c.audio_url&&!c.audio_url.startsWith("data:")?c.audio_url:""}" placeholder="https://...song.mp3">
+    </div>
     <div class="fi"><label>Song Name (wird angezeigt)</label><input type="text" id="audio_title" value="${c.audio_title||""}" placeholder="♫ Song - Artist"></div>
     <div class="fi"><label>Standard-Lautstärke (0–1)</label>
       <div style="display:flex;align-items:center;gap:10px;">
@@ -833,7 +849,32 @@ function handleVideoUpload(input){
   reader.onerror=function(){fn.textContent="✗ Fehler beim Lesen";prog.style.display="none";};
   reader.readAsDataURL(file);
 }
-  const pw=document.getElementById("newPassword").value,pw2=document.getElementById("confirmPassword").value;
+
+function handleAudioUpload(input){
+  const file=input.files[0];if(!file)return;
+  const fn=document.getElementById("audio_filename");
+  const prog=document.getElementById("audio_progress");
+  const bar=document.getElementById("audio_bar");
+  const status=document.getElementById("audio_status");
+  const sizeMB=Math.round(file.size/1024/1024*10)/10;
+  if(file.size>50*1024*1024){fn.textContent="✗ Zu groß! Max 50MB (aktuell "+sizeMB+"MB)";return;}
+  fn.textContent="⏳ Wird gelesen… ("+sizeMB+" MB)";
+  prog.style.display="block";bar.style.width="5%";status.textContent="Lesen…";
+  const reader=new FileReader();
+  reader.onprogress=function(e){if(e.lengthComputable){const pct=Math.round(e.loaded/e.total*90)+5;bar.style.width=pct+"%";status.textContent=pct+"%";}};
+  reader.onload=function(e){
+    const b64=e.target.result;
+    document.getElementById("audio_url_data").value=b64;
+    document.getElementById("audio_url").value="";
+    bar.style.width="100%";status.textContent="✓ Fertig – beim Speichern wird der Song gesetzt";
+    fn.textContent="✓ "+file.name+" ("+sizeMB+" MB)";
+    setTimeout(()=>prog.style.display="none",3000);
+  };
+  reader.onerror=function(){fn.textContent="✗ Fehler beim Lesen";prog.style.display="none";};
+  reader.readAsDataURL(file);
+}
+
+async function save(){
   if(pw&&pw!==pw2){alert("Passwörter stimmen nicht überein!");return}
   const data={
     username:document.getElementById("username").value,
@@ -866,7 +907,7 @@ function handleVideoUpload(input){
     meta_title:document.getElementById("meta_title").value,
     meta_description:document.getElementById("meta_description").value,
     custom_css:document.getElementById("custom_css").value,
-    audio_url:document.getElementById("audio_url").value,
+    audio_url:(function(){const d=document.getElementById("audio_url_data").value;return d||document.getElementById("audio_url").value;}()),
     audio_autoplay:document.getElementById("audio_autoplay").checked,
     audio_loop:document.getElementById("audio_loop").checked,
     audio_volume:parseFloat(document.getElementById("audio_volume").value||0.5),
