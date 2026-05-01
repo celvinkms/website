@@ -766,7 +766,10 @@ function renderBioPage(c, req) {
   const customJS = c.custom_js ? String(c.custom_js).replace(/<\/script/gi, "<\\/script") : "";
   const baseUrl = c.canonical_url || publicUrl(req);
   const canonical = c.canonical_url || (baseUrl + "/");
-  const shareImage = baseUrl.replace(/\/$/, "") + "/share-card.png?v=" + encodeURIComponent((c.username||"bio") + "-" + (c.meta_title||"default"));
+  const avatarForEmbed = c.avatar_url ? baseUrl.replace(/\/$/, "") + "/og-avatar.png?v=" + encodeURIComponent((c.username||"bio") + "-" + String(c.avatar_url||"").slice(-24)) : "";
+  const shareImage = avatarForEmbed || (baseUrl.replace(/\/$/, "") + "/share-card.png?v=" + encodeURIComponent((c.username||"bio") + "-" + (c.meta_title||"default")));
+  const shareImageWidth = avatarForEmbed ? 512 : 1200;
+  const shareImageHeight = avatarForEmbed ? 512 : 630;
   const linkCount = Array.isArray(c.links) ? c.links.filter(x => getLinkUrl(x)).length : 0;
   const badgeCount = Array.isArray(c.badges) ? c.badges.length : 0;
   const embedDesc = (metaDesc || `${linkCount} links • ${badgeCount} badges`).slice(0, 180);
@@ -789,8 +792,8 @@ ${c.seo_keywords?`<meta name="keywords" content="${esc(c.seo_keywords)}">`:""}
 <meta property="og:image" content="${esc(shareImage)}">
 <meta property="og:image:secure_url" content="${esc(shareImage)}">
 <meta property="og:image:type" content="image/png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+<meta property="og:image:width" content="${shareImageWidth}">
+<meta property="og:image:height" content="${shareImageHeight}">
 <meta property="og:image:alt" content="${esc(metaTitle)} — ${esc(embedDesc)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(metaTitle)}">
@@ -2303,6 +2306,38 @@ function makeShareCardPng(c){
   return encodePngRGBA(w,h,data);
 }
 
+
+
+app.get("/og-avatar.png", async (req, res) => {
+  const c = await getConfig();
+  const avatar = String(c.avatar_url || "").trim();
+  const fallback = publicUrl(req).replace(/\/$/, "") + "/share-card.png";
+  res.set("Cache-Control", "public, max-age=300, s-maxage=300");
+
+  if (!avatar) return res.redirect(302, fallback);
+
+  // If the avatar is saved as a data URL in Postgres, Discord cannot fetch it directly.
+  // This route converts it back into a normal image response.
+  const dataMatch = avatar.match(/^data:(image\/(?:png|jpe?g|webp|gif));base64,([a-z0-9+/=]+)$/i);
+  if (dataMatch) {
+    try {
+      const mime = dataMatch[1].toLowerCase().replace("image/jpg", "image/jpeg");
+      const buf = Buffer.from(dataMatch[2], "base64");
+      res.type(mime);
+      return res.send(buf);
+    } catch (e) {
+      return res.redirect(302, fallback);
+    }
+  }
+
+  // Absolute image URLs are best: Discord can fetch them directly.
+  if (/^https?:\/\//i.test(avatar)) return res.redirect(302, avatar);
+
+  // Relative URLs also work after making them absolute.
+  if (avatar.startsWith("/")) return res.redirect(302, publicUrl(req).replace(/\/$/, "") + avatar);
+
+  return res.redirect(302, fallback);
+});
 
 app.get("/share-card.png", async (req, res) => {
   const c = await getConfig();
