@@ -703,7 +703,7 @@ app.get("/audio", async (req, res) => {
 });
 
 
-app.post("/admin/upload-bg-video", requireAuth, express.raw({ type: ["video/*", "application/octet-stream"], limit: "80mb" }), async (req, res) => {
+app.post("/admin/upload-bg-video", requireAuth, express.raw({ type: ["video/*", "application/octet-stream"], limit: "400mb" }), async (req, res) => {
   try {
     const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || []);
     if (!buf.length) return res.status(400).json({ ok: false, error: "Keine Video-Daten empfangen." });
@@ -1500,9 +1500,9 @@ async function handleVideoUpload(input){
     input.value="";
     return;
   }
-  var max=80*1024*1024;
+  var max=400*1024*1024;
   if(file.size>max){
-    alert("Das Video ist zu groß ("+formatBytes(file.size)+"). Bitte komprimiere es auf unter 80MB, ideal unter 20-30MB. Sonst wird Browser/Render/Postgres zu schwer.");
+    alert("Das Video ist zu groß ("+formatBytes(file.size)+"). Bitte komprimiere es auf unter 400MB, ideal trotzdem unter 20-30MB. Sonst wird Browser/Render/Postgres zu schwer.");
     input.value="";
     return;
   }
@@ -1895,4 +1895,3 @@ app.post("/admin/api/restore-snapshot/:id", requireAuth, async (req, res) => {
 app.get("/admin/logout", (req, res) => { req.session.destroy(); res.redirect("/admin"); });
 
 initDB().then(() => app.listen(PORT, () => console.log("Server läuft auf Port", PORT))).catch(err => { console.error("DB Init Fehler:", err); process.exit(1); });
- 
