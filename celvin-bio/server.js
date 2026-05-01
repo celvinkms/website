@@ -13,10 +13,12 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejec
 const BG_VIDEO_CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks: stabil auf Render, kein Out-of-Memory
 const BG_VIDEO_STREAM_WINDOW = 24 * 1024 * 1024; // große Fenster + Datei-Cache: deutlich flüssiger für Videos
 const BG_VIDEO_CACHE_PATH = path.join(os.tmpdir(), "celvin-bg-video-cache.bin");
+const BG_VIDEO_UPLOAD_TMP_PATH = path.join(os.tmpdir(), "celvin-bg-video-upload.tmp");
 let bgVideoCacheKey = "";
+let bgVideoCachePromise = null;
 
-app.use(express.json({ limit: "200mb" }));
-app.use(express.urlencoded({ extended: true, limit: "200mb" }));
+app.use(express.json({ limit: "400mb" }));
+app.use(express.urlencoded({ extended: true, limit: "400mb" }));
 app.use(session({ secret: process.env.SESSION_SECRET || "celvin-secret-2024", resave: false, saveUninitialized: false, cookie: { maxAge: 86400000 } }));
 
 const PLATFORMS = {
@@ -144,8 +146,10 @@ function getAssetCacheKey(asset) {
 }
 function clearBgVideoFileCache() {
   bgVideoCacheKey = "";
+  bgVideoCachePromise = null;
   try { if (fs.existsSync(BG_VIDEO_CACHE_PATH)) fs.unlinkSync(BG_VIDEO_CACHE_PATH); } catch (_) {}
   try { if (fs.existsSync(BG_VIDEO_CACHE_PATH + ".tmp")) fs.unlinkSync(BG_VIDEO_CACHE_PATH + ".tmp"); } catch (_) {}
+  try { if (fs.existsSync(BG_VIDEO_UPLOAD_TMP_PATH)) fs.unlinkSync(BG_VIDEO_UPLOAD_TMP_PATH); } catch (_) {}
 }
 async function ensureBgVideoFileCache(asset) {
   const total = Number(asset.size_bytes || 0);
@@ -154,27 +158,30 @@ async function ensureBgVideoFileCache(asset) {
     const st = fs.existsSync(BG_VIDEO_CACHE_PATH) ? fs.statSync(BG_VIDEO_CACHE_PATH) : null;
     if (bgVideoCacheKey === key && st && st.size === total) return BG_VIDEO_CACHE_PATH;
   } catch (_) {}
-  const tmp = BG_VIDEO_CACHE_PATH + ".tmp";
-  try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch (_) {}
-  const fd = fs.openSync(tmp, "w");
-  try {
-    const count = Number(asset.chunk_count || 0);
-    for (let i = 0; i < count; i++) {
-      const { rows } = await pool.query(
-        "SELECT data, size_bytes FROM bio_asset_chunks WHERE asset_key = $1 AND chunk_index = $2 LIMIT 1",
-        ["bg_video", i]
-      );
-      if (!rows.length) throw new Error("missing bg_video chunk " + i);
-      const buf = Buffer.isBuffer(rows[0].data) ? rows[0].data : Buffer.from(rows[0].data || []);
-      fs.writeSync(fd, buf, 0, buf.length);
-    }
-  } finally {
-    fs.closeSync(fd);
-  }
-  fs.renameSync(tmp, BG_VIDEO_CACHE_PATH);
-  bgVideoCacheKey = key;
-  return BG_VIDEO_CACHE_PATH;
+  if (bgVideoCachePromise) return bgVideoCachePromise;
+  bgVideoCachePromise = (async () => {
+    const tmp = BG_VIDEO_CACHE_PATH + ".tmp." + process.pid + "." + Date.now();
+    try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch (_) {}
+    const fd = fs.openSync(tmp, "w");
+    try {
+      const count = Number(asset.chunk_count || 0);
+      for (let i = 0; i < count; i++) {
+        const { rows } = await pool.query("SELECT data, size_bytes FROM bio_asset_chunks WHERE asset_key = $1 AND chunk_index = $2 LIMIT 1", ["bg_video", i]);
+        if (!rows.length) throw new Error("missing bg_video chunk " + i);
+        const buf = Buffer.isBuffer(rows[0].data) ? rows[0].data : Buffer.from(rows[0].data || []);
+        fs.writeSync(fd, buf, 0, buf.length);
+      }
+    } finally { fs.closeSync(fd); }
+    const st = fs.statSync(tmp);
+    if (st.size !== total) throw new Error("bg video cache size mismatch: " + st.size + " !== " + total);
+    try { if (fs.existsSync(BG_VIDEO_CACHE_PATH)) fs.unlinkSync(BG_VIDEO_CACHE_PATH); } catch (_) {}
+    fs.renameSync(tmp, BG_VIDEO_CACHE_PATH);
+    bgVideoCacheKey = key;
+    return BG_VIDEO_CACHE_PATH;
+  })();
+  try { return await bgVideoCachePromise; } finally { bgVideoCachePromise = null; }
 }
+
 function streamVideoFile(req, res, filePath, asset) {
   const stat = fs.statSync(filePath);
   const total = stat.size;
@@ -182,9 +189,14 @@ function streamVideoFile(req, res, filePath, asset) {
   const filename = safeFileName(asset.filename || "background-video");
   res.setHeader("Accept-Ranges", "bytes");
   res.setHeader("Content-Type", contentType);
-  res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  res.setHeader("Cache-Control", "public, max-age=31536000, immutable, no-transform");
   res.setHeader("Content-Disposition", "inline; filename=\"" + filename + "\"");
   res.setHeader("X-Content-Type-Options", "nosniff");
+  if (!req.headers.range) {
+    res.status(200);
+    res.setHeader("Content-Length", total);
+    return fs.createReadStream(filePath).pipe(res);
+  }
   const range = parseRange(req.headers.range, total, null);
   if (!range) {
     res.status(416);
@@ -196,6 +208,7 @@ function streamVideoFile(req, res, filePath, asset) {
   res.setHeader("Content-Length", range.end - range.start + 1);
   fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(res);
 }
+
 
 function esc(v) {
   return String(v ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
@@ -390,9 +403,14 @@ function featureCatalog() {
   const labels = {"card-hover-raise": "Card hover raise", "card-hover-scale": "Card hover scale", "card-floating": "Card floating idle", "card-border-glow": "Card border glow", "card-double-border": "Card double border", "card-shadow-soft": "Card soft shadow", "card-shadow-neon": "Card neon shadow", "card-glass-max": "Card max glass", "card-dark-matte": "Card matte dark", "card-light-frost": "Card frost light", "card-gradient-surface": "Card gradient surface", "card-noise-overlay": "Card noise overlay", "card-inner-grid": "Card inner grid", "card-corner-dots": "Card corner dots", "card-compact-padding": "Card compact padding", "avatar-pulse": "Avatar pulse", "avatar-ring-spin": "Avatar ring spin", "avatar-neon-ring": "Avatar neon ring", "avatar-double-ring": "Avatar double ring", "avatar-square-hard": "Avatar hard square", "avatar-soft-shadow": "Avatar soft shadow", "avatar-grayscale": "Avatar grayscale", "avatar-saturate": "Avatar saturate", "avatar-tilt-hover": "Avatar tilt hover", "avatar-bounce-in": "Avatar bounce in", "avatar-online-ping": "Avatar status ping", "avatar-status-hidden": "Hide status dot", "avatar-status-big": "Big status dot", "avatar-status-square": "Square status dot", "avatar-mirror": "Avatar mirror", "type-name-gradient": "Name gradient", "type-name-glow": "Name glow", "type-name-outline": "Name outline", "type-name-uppercase": "Name uppercase", "type-name-lowercase": "Name lowercase", "type-name-spaced": "Name letter spacing", "type-bio-mono": "Bio mono", "type-bio-large": "Bio large", "type-bio-small": "Bio small", "type-bio-muted": "Bio muted", "type-bio-bright": "Bio bright", "type-bio-centered": "Bio centered", "type-bio-left": "Bio left align", "type-pronouns-pill": "Pronouns pill", "type-hide-pronouns": "Hide pronouns", "link-lift": "Links lift", "link-shine": "Links shine", "link-compact": "Links compact", "link-wide": "Links wide", "link-left-accent": "Left accent bar", "link-icon-box": "Icon boxes", "link-rounded-pill": "Links pill", "link-square": "Links squared", "link-neon-glow": "Links neon glow", "link-text-big": "Links big text", "link-platform-hide": "Hide platform labels", "link-username-uppercase": "Usernames uppercase", "link-stagger": "Staggered link stack", "link-hover-slide": "Hover slide", "link-hover-fill": "Hover fill", "badge-glow": "Badge glow", "badge-solid-all": "Solid badges", "badge-outline-all": "Outline badges", "badge-glass-all": "Glass badges", "badge-neon-all": "Neon badges", "badge-large": "Large badges", "badge-small": "Small badges", "badge-rounded-square": "Square badges", "badge-icons-round": "Round badge icons", "badge-uppercase-off": "No badge uppercase", "badge-center-compact": "Compact badge row", "badge-spread": "Spread badges", "badge-gradient": "Gradient badges", "badge-shadow": "Badge shadow", "badge-pulse-first": "First badge pulse", "bg-vignette": "Background vignette", "bg-scanlines": "CRT scanlines", "bg-noise": "Background noise", "bg-orbs": "Floating orbs", "bg-stars": "Star field", "bg-radial-center": "Radial center glow", "bg-radial-corner": "Radial corner glow", "bg-contrast": "More contrast", "bg-darken": "Dark overlay", "bg-lighten": "Light overlay", "bg-blur": "Blur background", "bg-saturate": "Saturate background", "bg-grid-strong": "Strong grid", "bg-dots-strong": "Strong dots", "bg-animated-slow": "Slow bg animation", "motion-slow": "Slow animations", "motion-fast": "Fast animations", "motion-fade-card": "Card fade in", "motion-slide-card": "Card slide in", "motion-zoom-card": "Card zoom in", "motion-link-cascade": "Link cascade", "motion-badge-cascade": "Badge cascade", "motion-avatar-pop": "Avatar pop", "motion-background-shift": "Background shift", "motion-hover-tilt": "Hover tilt", "motion-no-animations": "No animations", "motion-smooth-scroll": "Smooth scroll", "motion-cursor-soft": "Soft cursor glow", "motion-cursor-big": "Big cursor glow", "motion-attention-pulse": "Attention pulse", "layout-wide": "Wide card", "layout-narrow": "Narrow card", "layout-left": "Page left", "layout-right": "Page right", "layout-top": "Page top", "layout-bottom": "Page bottom", "layout-card-left": "Card text left", "layout-card-right": "Card text right", "layout-no-divider": "Hide divider", "layout-divider-glow": "Divider glow", "layout-extra-gap": "Extra spacing", "layout-no-gap": "Tight spacing", "layout-mobile-compact": "Mobile compact", "layout-safe-area": "Safe area padding", "layout-minimal": "Minimal layout", "media-spotify-shadow": "Spotify shadow", "media-spotify-hide": "Hide Spotify", "media-audio-left": "Audio left", "media-audio-center": "Audio center", "media-audio-minimal": "Audio minimal", "media-audio-glass": "Audio glass", "media-views-pill": "Views pill", "media-views-hide": "Hide views", "media-video-cover-dark": "Dark video cover", "media-video-cover-light": "Light video cover", "media-audio-bars-neon": "Audio bars neon", "media-volume-hide": "Hide volume", "media-widget-big": "Big audio widget", "media-widget-small": "Small audio widget", "media-widget-bottom-center": "Audio bottom center", "extra-cyber-corners": "Cyber corner marks", "extra-terminal-lines": "Terminal lines", "extra-heart-cursor": "Heart cursor", "extra-profile-grid": "Profile grid feel", "extra-no-link-arrows": "Hide link arrows", "extra-link-arrows-large": "Large link arrows", "extra-card-separator": "Card separators", "extra-hologram": "Hologram card", "extra-glitch-name": "Glitch name", "extra-rainbow-accent": "Rainbow accent", "extra-soft-focus": "Soft focus", "extra-high-contrast": "High contrast", "extra-low-contrast": "Low contrast", "extra-print-clean": "Print clean", "extra-dev-mode": "Dev mode labels"};
   return items.map((key, i) => ({ key, label: labels[key] || key.replace(/-/g, " "), group: key.split("-")[0], index: i + 1 }));
 }
-function enabledFeatureClasses(flags) {
+function enabledFeatureClasses(flags, opts = {}) {
   if (!flags || typeof flags !== "object") return "";
-  return Object.keys(flags).filter(k => flags[k]).map(k => "fx-" + k.replace(/[^a-z0-9_-]/gi, "")).join(" ");
+  const videoMode = Boolean(opts.videoMode);
+  const blockedOnVideo = new Set(["bg-grid-strong", "bg-dots-strong", "bg-scanlines", "card-inner-grid", "extra-profile-grid", "extra-terminal-lines"]);
+  return Object.keys(flags)
+    .filter(k => flags[k] && !(videoMode && blockedOnVideo.has(k)))
+    .map(k => "fx-" + k.replace(/[^a-z0-9_-]/gi, ""))
+    .join(" ");
 }
 
 const ICONS = {
@@ -552,7 +570,7 @@ function renderBioPage(c) {
     : c.bg_type === "image" ? `url('${c.bg_image_url}') center/cover no-repeat fixed`
     : c.bg_type === "video" ? "transparent"
     : (c.bg_color||"#0a0a0a");
-  const bgVideoHtml = c.bg_type === "video" && c.bg_video_url ? `<video data-bg-video autoplay loop muted playsinline preload="auto" src="${c.bg_video_url}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;background:#000;"></video><div style="position:fixed;inset:0;background:rgba(0,0,0,${c.bg_overlay_opacity||0.3});z-index:-1;"></div><script>document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('video[data-bg-video]').forEach(function(v){v.muted=true;v.playsInline=true;var p=function(){v.play().catch(function(){});};p();document.addEventListener('click',p,{once:true});});});<\/script>` : "";
+  const bgVideoHtml = c.bg_type === "video" && c.bg_video_url ? `<video data-bg-video autoplay loop muted playsinline preload="auto" disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback" src="${c.bg_video_url}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3;background:#000;transform:translateZ(0);will-change:auto;"></video><div style="position:fixed;inset:0;background:rgba(0,0,0,${c.bg_overlay_opacity||0.3});z-index:-2;pointer-events:none;"></div><script>document.addEventListener("DOMContentLoaded",function(){document.querySelectorAll("video[data-bg-video]").forEach(function(v){v.muted=true;v.playsInline=true;v.defaultMuted=true;var p=function(){var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});};if(v.readyState>=2)p();else v.addEventListener("canplay",p,{once:true});document.addEventListener("click",p,{once:true});});});<\/script>` : "";
   const cardBg = c.card_style==="glass" ? "rgba(255,255,255,0.06)" : c.card_style==="light" ? "rgba(255,255,255,0.96)" : "rgba(17,17,17,0.95)";
   const cardBorder = c.card_style==="glass" ? "rgba(255,255,255,0.12)" : c.card_style==="light" ? "rgba(0,0,0,0.08)" : "#1e1e1e";
   const cardBlur = c.card_blur ? "backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);" : "";
@@ -657,7 +675,8 @@ function renderBioPage(c) {
     _bars.classList.add('paused');
     `}
     </script>` : "";
-  const patternCSS = c.bg_pattern==="dots" ? `body::after{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,${c.accent||"#c8ff00"}15 1px,transparent 1px);background-size:24px 24px;pointer-events:none;z-index:0;}`
+  const isVideoBg = c.bg_type === "video" && c.bg_video_url;
+  const patternCSS = isVideoBg ? "" : c.bg_pattern==="dots" ? `body::after{content:'';position:fixed;inset:0;background-image:radial-gradient(circle,${c.accent||"#c8ff00"}15 1px,transparent 1px);background-size:24px 24px;pointer-events:none;z-index:0;}`
     : c.bg_pattern==="grid" ? `body::after{content:'';position:fixed;inset:0;background-image:linear-gradient(${c.accent||"#c8ff00"}0f 1px,transparent 1px),linear-gradient(90deg,${c.accent||"#c8ff00"}0f 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}`
     : c.bg_pattern==="lines" ? `body::after{content:'';position:fixed;inset:0;background-image:repeating-linear-gradient(0deg,${c.accent||"#c8ff00"}08 0px,${c.accent||"#c8ff00"}08 1px,transparent 1px,transparent 40px);pointer-events:none;z-index:0;}` : "";
   const animBg = c.bg_animated && c.bg_type==="gradient" ? `@keyframes bgShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}body{background-size:300% 300%!important;animation:bgShift 8s ease infinite;}` : "";
@@ -668,7 +687,7 @@ function renderBioPage(c) {
   const metaTitle = c.meta_title || c.username || "bio";
   const metaDesc = c.meta_description || (c.bio||"").split("\n")[0] || "";
   const favicon = c.favicon_url || c.avatar_url || "";
-  const featureClasses = enabledFeatureClasses(c.feature_flags);
+  const featureClasses = enabledFeatureClasses(c.feature_flags, { videoMode: isVideoBg }) + (isVideoBg ? " has-bg-video" : "");
   const customJS = c.custom_js ? String(c.custom_js).replace(/<\/script/gi, "<\\/script") : "";
 
   return `<!DOCTYPE html>
@@ -729,6 +748,7 @@ ${patternCSS}${animBg}
 .link-username{font-size:.9rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .arr{margin-left:auto;font-size:.75rem;color:var(--m);transition:color .2s;flex-shrink:0}
 .link-btn:hover .arr{color:var(--lc,var(--a))}
+body.has-bg-video::after{display:none!important;background:none!important}body.has-bg-video.fx-bg-scanlines,body.has-bg-video.fx-bg-grid-strong,body.has-bg-video.fx-bg-dots-strong{background-image:none!important}.has-bg-video .card{background-image:none!important}
 ${v4PublicCSS(c)}</style>${customCSS}
 </head><body class="${featureClasses}">
 ${bgVideoHtml}${particles}${glow}${v4PublicTopLayers(c)}
@@ -805,6 +825,7 @@ app.post("/admin/upload-bg-video-init", requireAuth, async (req, res) => {
     if (chunkSize < 512 * 1024 || chunkSize > 8 * 1024 * 1024) return res.status(400).json({ ok: false, error: "Ungültige Chunk-Größe." });
     if (!contentType.startsWith("video/") && contentType !== "application/octet-stream") return res.status(415).json({ ok: false, error: "Nur Video-Dateien sind erlaubt." });
     clearBgVideoFileCache();
+    try { fs.closeSync(fs.openSync(BG_VIDEO_UPLOAD_TMP_PATH, "w")); } catch (_) {}
     await pool.query("DELETE FROM bio_asset_chunks WHERE asset_key = $1", ["bg_video"]);
     await pool.query(
       "INSERT INTO bio_assets (asset_key, filename, content_type, data, size_bytes, upload_kind, chunk_size, chunk_count, updated_at) VALUES ($1, $2, $3, $4, $5, 'chunked', $6, $7, now()) ON CONFLICT (asset_key) DO UPDATE SET filename = EXCLUDED.filename, content_type = EXCLUDED.content_type, data = EXCLUDED.data, size_bytes = EXCLUDED.size_bytes, upload_kind = 'chunked', chunk_size = EXCLUDED.chunk_size, chunk_count = EXCLUDED.chunk_count, updated_at = now()",
@@ -828,6 +849,12 @@ app.post("/admin/upload-bg-video-chunk", requireAuth, express.raw({ type: ["appl
       "INSERT INTO bio_asset_chunks (asset_key, chunk_index, data, size_bytes, updated_at) VALUES ($1, $2, $3, $4, now()) ON CONFLICT (asset_key, chunk_index) DO UPDATE SET data = EXCLUDED.data, size_bytes = EXCLUDED.size_bytes, updated_at = now()",
       ["bg_video", index, buf, buf.length]
     );
+    try {
+      const meta = await pool.query("SELECT chunk_size FROM bio_assets WHERE asset_key = $1", ["bg_video"]);
+      const chunkSize = Number(meta.rows[0]?.chunk_size || BG_VIDEO_CHUNK_SIZE);
+      const fd = fs.openSync(BG_VIDEO_UPLOAD_TMP_PATH, "a+");
+      try { fs.writeSync(fd, buf, 0, buf.length, index * chunkSize); } finally { fs.closeSync(fd); }
+    } catch (fileErr) { console.warn("[upload-bg-video-chunk tmp-cache]", fileErr.message); }
     res.json({ ok: true, index, size: buf.length });
   } catch (err) {
     console.error("[upload-bg-video-chunk]", err);
@@ -850,7 +877,20 @@ app.post("/admin/upload-bg-video-complete", requireAuth, async (req, res) => {
     const c = await getConfig();
     c.bg_type = "video";
     c.bg_video_url = "/asset/bg-video?v=" + Date.now();
+    c.bg_pattern = "none";
+    c.bg_animated = false;
+    if (c.feature_flags && typeof c.feature_flags === "object") {
+      ["bg-grid-strong", "bg-dots-strong", "bg-scanlines", "card-inner-grid", "extra-profile-grid", "extra-terminal-lines"].forEach(k => { c.feature_flags[k] = false; });
+    }
     await saveConfig(c);
+    try {
+      const st = fs.existsSync(BG_VIDEO_UPLOAD_TMP_PATH) ? fs.statSync(BG_VIDEO_UPLOAD_TMP_PATH) : null;
+      if (st && st.size === wantedSize) {
+        try { if (fs.existsSync(BG_VIDEO_CACHE_PATH)) fs.unlinkSync(BG_VIDEO_CACHE_PATH); } catch (_) {}
+        fs.renameSync(BG_VIDEO_UPLOAD_TMP_PATH, BG_VIDEO_CACHE_PATH);
+        bgVideoCacheKey = getAssetCacheKey(meta.rows[0]);
+      }
+    } catch (cacheErr) { console.warn("[upload-bg-video-complete cache]", cacheErr.message); }
     res.json({ ok: true, url: c.bg_video_url, filename: meta.rows[0].filename, size: wantedSize, content_type: meta.rows[0].content_type });
   } catch (err) {
     console.error("[upload-bg-video-complete]", err);
@@ -875,6 +915,12 @@ app.post("/admin/upload-bg-video", requireAuth, express.raw({ type: ["video/*", 
     const c = await getConfig();
     c.bg_type = "video";
     c.bg_video_url = "/asset/bg-video?v=" + Date.now();
+    c.bg_pattern = "none";
+    c.bg_animated = false;
+    if (c.feature_flags && typeof c.feature_flags === "object") {
+      ["bg-grid-strong", "bg-dots-strong", "bg-scanlines", "card-inner-grid", "extra-profile-grid", "extra-terminal-lines"].forEach(k => { c.feature_flags[k] = false; });
+    }
+    try { fs.writeFileSync(BG_VIDEO_CACHE_PATH, buf); bgVideoCacheKey = "single:" + buf.length + ":" + Date.now(); } catch (_) {}
     await saveConfig(c);
     res.json({ ok: true, url: c.bg_video_url, filename, size: buf.length, content_type: contentType });
   } catch (err) {
