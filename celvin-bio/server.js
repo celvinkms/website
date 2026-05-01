@@ -8,6 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const BG_VIDEO_CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks: stabil auf Render, kein Out-of-Memory
+const BG_VIDEO_STREAM_WINDOW = 2 * 1024 * 1024; // kleine Streaming-Fenster, damit Browser/Render nicht hängen
 
 app.use(express.json({ limit: "200mb" }));
 app.use(express.urlencoded({ extended: true, limit: "200mb" }));
@@ -105,13 +106,30 @@ async function getConfig() {
 async function saveConfig(data) { await pool.query("UPDATE bio_config SET data = $1", [data]); }
 function requireAuth(req, res, next) { if (req.session.authenticated) return next(); res.redirect("/admin"); }
 function safeFileName(v) { return String(v || "video").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "video"; }
-function parseRange(rangeHeader, total) {
-  if (!rangeHeader || !/^bytes=/.test(rangeHeader)) return null;
-  const [startRaw, endRaw] = rangeHeader.replace(/bytes=/, "").split("-");
-  const start = startRaw === "" ? 0 : parseInt(startRaw, 10);
-  const end = endRaw ? parseInt(endRaw, 10) : total - 1;
+function parseRange(rangeHeader, total, windowSize = null) {
+  if (!total || total < 1) return null;
+  if (!rangeHeader || !/^bytes=/.test(rangeHeader)) {
+    const end = Math.min(total - 1, (windowSize || total) - 1);
+    return { start: 0, end, partial: Boolean(windowSize && end < total - 1) };
+  }
+  const raw = rangeHeader.replace(/bytes=/, "").split(",")[0].trim();
+  const [startRaw, endRaw] = raw.split("-");
+  let start;
+  let end;
+  if (startRaw === "") {
+    // suffix range: bytes=-1048576 -> letzte 1MB, wichtig für MP4-Metadaten am Dateiende
+    const suffix = parseInt(endRaw, 10);
+    if (Number.isNaN(suffix) || suffix <= 0) return null;
+    start = Math.max(0, total - suffix);
+    end = total - 1;
+  } else {
+    start = parseInt(startRaw, 10);
+    end = endRaw ? parseInt(endRaw, 10) : total - 1;
+  }
   if (Number.isNaN(start) || Number.isNaN(end) || start < 0 || end < start || start >= total) return null;
-  return { start, end: Math.min(end, total - 1) };
+  end = Math.min(end, total - 1);
+  if (windowSize && end - start + 1 > windowSize) end = Math.min(total - 1, start + windowSize - 1);
+  return { start, end, partial: true };
 }
 
 function esc(v) {
@@ -469,7 +487,7 @@ function renderBioPage(c) {
     : c.bg_type === "image" ? `url('${c.bg_image_url}') center/cover no-repeat fixed`
     : c.bg_type === "video" ? "transparent"
     : (c.bg_color||"#0a0a0a");
-  const bgVideoHtml = c.bg_type === "video" && c.bg_video_url ? `<video autoplay loop muted playsinline style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;"><source src="${c.bg_video_url}"></video><div style="position:fixed;inset:0;background:rgba(0,0,0,${c.bg_overlay_opacity||0.3});z-index:-1;"></div>` : "";
+  const bgVideoHtml = c.bg_type === "video" && c.bg_video_url ? `<video data-bg-video autoplay loop muted playsinline preload="auto" src="${c.bg_video_url}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;background:#000;"></video><div style="position:fixed;inset:0;background:rgba(0,0,0,${c.bg_overlay_opacity||0.3});z-index:-1;"></div><script>document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('video[data-bg-video]').forEach(function(v){v.muted=true;v.playsInline=true;var p=function(){v.play().catch(function(){});};p();document.addEventListener('click',p,{once:true});});});<\/script>` : "";
   const cardBg = c.card_style==="glass" ? "rgba(255,255,255,0.06)" : c.card_style==="light" ? "rgba(255,255,255,0.96)" : "rgba(17,17,17,0.95)";
   const cardBorder = c.card_style==="glass" ? "rgba(255,255,255,0.12)" : c.card_style==="light" ? "rgba(0,0,0,0.08)" : "#1e1e1e";
   const cardBlur = c.card_blur ? "backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);" : "";
@@ -818,18 +836,23 @@ async function streamChunkedAsset(req, res, asset) {
   const contentType = asset.content_type || "video/mp4";
   const chunkSize = Number(asset.chunk_size || BG_VIDEO_CHUNK_SIZE);
   const filename = safeFileName(asset.filename || "background-video");
+  const range = parseRange(req.headers.range, total, BG_VIDEO_STREAM_WINDOW);
+  if (!range) {
+    res.status(416);
+    res.setHeader("Content-Range", "bytes */" + total);
+    return res.end();
+  }
+  const start = range.start;
+  const end = range.end;
+  const expectedLength = Math.max(0, end - start + 1);
+  res.status(206);
   res.setHeader("Accept-Ranges", "bytes");
   res.setHeader("Content-Type", contentType);
-  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.setHeader("Content-Range", "bytes " + start + "-" + end + "/" + total);
+  res.setHeader("Content-Length", expectedLength);
+  res.setHeader("Cache-Control", "public, max-age=3600, immutable");
   res.setHeader("Content-Disposition", "inline; filename=\"" + filename + "\"");
-  const range = parseRange(req.headers.range, total);
-  const start = range ? range.start : 0;
-  const end = range ? range.end : total - 1;
-  if (range) {
-    res.status(206);
-    res.setHeader("Content-Range", "bytes " + start + "-" + end + "/" + total);
-  }
-  res.setHeader("Content-Length", Math.max(0, end - start + 1));
+  res.setHeader("X-Content-Type-Options", "nosniff");
   if (!total || end < start) return res.end();
   const firstChunk = Math.floor(start / chunkSize);
   const lastChunk = Math.floor(end / chunkSize);
@@ -837,13 +860,21 @@ async function streamChunkedAsset(req, res, asset) {
     "SELECT chunk_index, data FROM bio_asset_chunks WHERE asset_key = $1 AND chunk_index BETWEEN $2 AND $3 ORDER BY chunk_index ASC",
     ["bg_video", firstChunk, lastChunk]
   );
+  let written = 0;
   for (const row of chunks.rows) {
     const chunkIndex = Number(row.chunk_index);
     const absStart = chunkIndex * chunkSize;
     const buf = Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data || []);
     const localStart = Math.max(0, start - absStart);
     const localEnd = Math.min(buf.length - 1, end - absStart);
-    if (localEnd >= localStart) res.write(buf.slice(localStart, localEnd + 1));
+    if (localEnd >= localStart) {
+      const part = buf.slice(localStart, localEnd + 1);
+      written += part.length;
+      res.write(part);
+    }
+  }
+  if (written !== expectedLength) {
+    console.error("[asset-bg-video] missing bytes", { start, end, expectedLength, written, firstChunk, lastChunk });
   }
   res.end();
 }
@@ -861,18 +892,31 @@ app.get("/asset/bg-video", async (req, res) => {
     res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.setHeader("Content-Disposition", "inline; filename=\"" + safeFileName(asset.filename || "background-video") + "\"");
-    const range = parseRange(req.headers.range, total);
-    if (range) {
-      res.status(206);
-      res.setHeader("Content-Range", "bytes " + range.start + "-" + range.end + "/" + total);
-      res.setHeader("Content-Length", range.end - range.start + 1);
-      return res.end(buf.slice(range.start, range.end + 1));
+    const range = parseRange(req.headers.range, total, BG_VIDEO_STREAM_WINDOW);
+    if (!range) {
+      res.status(416);
+      res.setHeader("Content-Range", "bytes */" + total);
+      return res.end();
     }
-    res.setHeader("Content-Length", total);
-    res.end(buf);
+    res.status(206);
+    res.setHeader("Content-Range", "bytes " + range.start + "-" + range.end + "/" + total);
+    res.setHeader("Content-Length", range.end - range.start + 1);
+    return res.end(buf.slice(range.start, range.end + 1));
   } catch (err) {
     console.error("[asset-bg-video]", err);
     res.status(500).send("video error");
+  }
+});
+
+
+app.get("/admin/api/bg-video-status", requireAuth, async (req, res) => {
+  try {
+    const meta = await pool.query("SELECT filename, content_type, size_bytes, upload_kind, chunk_size, chunk_count, updated_at FROM bio_assets WHERE asset_key = $1", ["bg_video"]);
+    const stat = await pool.query("SELECT COUNT(*)::int AS chunks_present, COALESCE(SUM(size_bytes),0)::bigint AS bytes_present FROM bio_asset_chunks WHERE asset_key = $1", ["bg_video"]);
+    res.json({ ok: true, asset: meta.rows[0] || null, chunks: stat.rows[0] || null });
+  } catch (err) {
+    console.error("[bg-video-status]", err);
+    res.status(500).json({ ok: false, error: err.message });
   }
 });
 
@@ -1400,7 +1444,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
           <button type="button" class="upload-btn" onclick="clearBgVideo()">Video entfernen</button>
           <span id="bg_video_filename" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--m);">${c.bg_video_url?"✓ Video gesetzt":"Keine Datei"}</span>
         </div>
-        <video id="bg_video_preview" src="${c.bg_video_url||""}" muted loop playsinline controls style="width:100%;max-height:160px;object-fit:cover;border-radius:14px;border:1px solid var(--b2);background:#050505;display:${c.bg_video_url?"block":"none"}"></video>
+        <video id="bg_video_preview" src="${c.bg_video_url||""}" muted loop playsinline preload="metadata" controls style="width:100%;max-height:160px;object-fit:cover;border-radius:14px;border:1px solid var(--b2);background:#050505;display:${c.bg_video_url?"block":"none"}"></video>
         <p style="font-family:'Space Mono',monospace;font-size:10px;line-height:1.6;color:var(--m);margin-top:8px;">Tipp: Für Render/Postgres am besten kurze komprimierte MP4/WebM Videos nutzen. Maximal erlaubt sind 120MB, besser unter 30MB.</p>
       </div>
       <div class="fi"><label>oder externe Video URL</label><input type="url" id="bg_video_url" value="${c.bg_video_url||""}" placeholder="https://...video.mp4 oder /asset/bg-video" oninput="syncBgVideoPreview(this.value)"></div>
