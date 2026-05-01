@@ -1203,11 +1203,21 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
       </div>
     </div>
     <div id="bgf-video" style="${c.bg_type!=="video"?"display:none":""}">
-      <div class="fi"><label>Video URL (mp4, webm)</label><input type="url" id="bg_video_url" value="${c.bg_video_url||""}" placeholder="https://...video.mp4"></div>
+      <div class="fi"><label>Hintergrund-Video</label>
+        <input type="file" id="bg_video_file" accept="video/mp4,video/webm,video/ogg,video/*" style="display:none" onchange="handleVideoUpload(this)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+          <button type="button" class="upload-btn" onclick="document.getElementById('bg_video_file').click()">🎬 Video vom PC wählen</button>
+          <button type="button" class="upload-btn" onclick="clearBgVideo()">Video entfernen</button>
+          <span id="bg_video_filename" style="font-family:'Space Mono',monospace;font-size:11px;color:var(--m);">${c.bg_video_url?"✓ Video gesetzt":"Keine Datei"}</span>
+        </div>
+        <video id="bg_video_preview" src="${c.bg_video_url||""}" muted loop playsinline controls style="width:100%;max-height:160px;object-fit:cover;border-radius:14px;border:1px solid var(--b2);background:#050505;display:${c.bg_video_url?"block":"none"}"></video>
+        <p style="font-family:'Space Mono',monospace;font-size:10px;line-height:1.6;color:var(--m);margin-top:8px;">Tipp: Für Render/Postgres am besten kurze komprimierte MP4/WebM Videos nutzen. Maximal erlaubt sind 120MB, besser unter 30MB.</p>
+      </div>
+      <div class="fi"><label>oder Video URL / Data URL</label><input type="url" id="bg_video_url" value="${c.bg_video_url||""}" placeholder="https://...video.mp4" oninput="syncBgVideoPreview(this.value)"></div>
       <div class="fi"><label>Overlay Deckkraft (0=kein, 1=schwarz)</label>
         <div style="display:flex;align-items:center;gap:10px;">
-          <input type="range" id="bg_overlay_opacity" min="0" max="1" step="0.05" value="${c.bg_overlay_opacity||0.3}" style="flex:1;accent-color:var(--a)">
-          <span style="font-family:monospace;font-size:12px;color:var(--m);width:30px;">${Math.round((c.bg_overlay_opacity||0.3)*100)}%</span>
+          <input type="range" id="bg_overlay_opacity" min="0" max="1" step="0.05" value="${c.bg_overlay_opacity||0.3}" style="flex:1;accent-color:var(--a)" oninput="this.nextElementSibling.textContent=Math.round(this.value*100)+'%';">
+          <span style="font-family:monospace;font-size:12px;color:var(--m);width:38px;">${Math.round((c.bg_overlay_opacity||0.3)*100)}%</span>
         </div>
       </div>
     </div>
@@ -1369,12 +1379,70 @@ function syncH(id){document.getElementById(id+"_h").value=document.getElementByI
 
 function updBg(){
   const t=document.getElementById("bg_type").value;
-  ["bgf-solid","bgf-gradient","bgf-image"].forEach(f=>document.getElementById(f).style.display="none");
-  document.getElementById("bgf-"+t).style.display="";
+  ["bgf-solid","bgf-gradient","bgf-image","bgf-video"].forEach(function(f){var el=document.getElementById(f); if(el) el.style.display="none";});
+  var target=document.getElementById("bgf-"+t); if(target) target.style.display="";
   const p=document.getElementById("bgp");
   if(t==="solid"){const v=document.getElementById("bg_color").value;document.getElementById("bg_color_h").value=v;p.style.background=v;}
   else if(t==="gradient"){const f=document.getElementById("bg_gradient_from").value,to=document.getElementById("bg_gradient_to").value,a=document.getElementById("bg_gradient_angle").value||135;document.getElementById("bg_gradient_from_h").value=f;document.getElementById("bg_gradient_to_h").value=to;p.style.background="linear-gradient("+a+"deg,"+f+","+to+")";}
+  else if(t==="image"){var im=document.getElementById("bg_image_url")&&document.getElementById("bg_image_url").value;p.style.background=im?"url('"+im+"') center/cover":"#1a1a1a";}
+  else if(t==="video"){p.style.background="linear-gradient(135deg,#050505,#161622)";}
   else{p.style.background="#1a1a1a";}
+}
+
+function formatBytes(bytes){
+  if(!bytes && bytes!==0) return "";
+  var units=["B","KB","MB","GB"], i=0, n=Number(bytes)||0;
+  while(n>=1024 && i<units.length-1){n/=1024;i++;}
+  return (i===0?n:n.toFixed(1))+" "+units[i];
+}
+
+function syncBgVideoPreview(value){
+  var preview=document.getElementById("bg_video_preview");
+  var label=document.getElementById("bg_video_filename");
+  if(preview){preview.src=value||"";preview.style.display=value?"block":"none";try{preview.load();}catch(e){}}
+  if(label) label.textContent=value?"✓ Video gesetzt":"Keine Datei";
+  try{markDirty();}catch(e){}
+}
+
+function handleVideoUpload(input){
+  var file=input && input.files && input.files[0];
+  if(!file) return;
+  if(file.type && !file.type.startsWith("video/")){
+    alert("Bitte eine Video-Datei auswählen, z.B. MP4 oder WebM.");
+    input.value="";
+    return;
+  }
+  var max=120*1024*1024;
+  if(file.size>max){
+    alert("Das Video ist zu groß ("+formatBytes(file.size)+"). Bitte komprimiere es auf unter 120MB, besser unter 30MB, sonst wird Render/Postgres extrem langsam.");
+    input.value="";
+    return;
+  }
+  var label=document.getElementById("bg_video_filename");
+  if(label) label.textContent="Lade "+file.name+" ("+formatBytes(file.size)+") ...";
+  var reader=new FileReader();
+  reader.onload=function(){
+    var dataUrl=reader.result;
+    var urlInput=document.getElementById("bg_video_url");
+    var type=document.getElementById("bg_type");
+    if(urlInput) urlInput.value=dataUrl;
+    if(type) type.value="video";
+    updBg();
+    syncBgVideoPreview(dataUrl);
+    if(label) label.textContent="✓ "+file.name+" ("+formatBytes(file.size)+")";
+    try{markDirty();}catch(e){}
+  };
+  reader.onerror=function(){alert("Video konnte nicht gelesen werden."); if(label) label.textContent="Fehler beim Lesen";};
+  reader.readAsDataURL(file);
+}
+
+function clearBgVideo(){
+  var inp=document.getElementById("bg_video_file");
+  var url=document.getElementById("bg_video_url");
+  if(inp) inp.value="";
+  if(url) url.value="";
+  syncBgVideoPreview("");
+  try{markDirty();}catch(e){}
 }
 
 function escClient(v){return String(v??"").replace(/[&<>"']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch];});}
