@@ -74,6 +74,7 @@ async function initDB() {
   await pool.query(`CREATE TABLE IF NOT EXISTS bio_config (id SERIAL PRIMARY KEY, data JSONB NOT NULL DEFAULT '{}')`);
   await pool.query(`CREATE TABLE IF NOT EXISTS bio_events (id SERIAL PRIMARY KEY, type TEXT NOT NULL, path TEXT, link_index INTEGER, link_platform TEXT, link_label TEXT, referrer TEXT, user_agent TEXT, ip_hash TEXT, created_at TIMESTAMPTZ DEFAULT now())`);
   await pool.query(`CREATE TABLE IF NOT EXISTS bio_snapshots (id SERIAL PRIMARY KEY, label TEXT, data JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT now())`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS bio_assets (asset_key TEXT PRIMARY KEY, filename TEXT, content_type TEXT NOT NULL, data BYTEA NOT NULL, size_bytes INTEGER NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ DEFAULT now())`);
   const { rows } = await pool.query("SELECT id FROM bio_config LIMIT 1");
   if (rows.length === 0) {
     const d = { ...DEFAULT_CONFIG, password: await bcrypt.hash("admin123", 10) };
@@ -88,10 +89,25 @@ async function getConfig() {
   }
   data.badges = normalizeBadges(data.badges);
   if (!data.feature_flags || typeof data.feature_flags !== "object") data.feature_flags = {};
+  // Alte Browser-crashende Base64/Data-URL Videos nicht mehr direkt ins HTML rendern.
+  // Videos werden ab jetzt als DB-Asset über /asset/bg-video gestreamt.
+  if (typeof data.bg_video_url === "string" && data.bg_video_url.startsWith("data:video")) {
+    data.bg_video_url = "";
+    if (data.bg_type === "video") data.bg_type = "solid";
+  }
   return data;
 }
 async function saveConfig(data) { await pool.query("UPDATE bio_config SET data = $1", [data]); }
 function requireAuth(req, res, next) { if (req.session.authenticated) return next(); res.redirect("/admin"); }
+function safeFileName(v) { return String(v || "video").replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "video"; }
+function parseRange(rangeHeader, total) {
+  if (!rangeHeader || !/^bytes=/.test(rangeHeader)) return null;
+  const [startRaw, endRaw] = rangeHeader.replace(/bytes=/, "").split("-");
+  const start = startRaw === "" ? 0 : parseInt(startRaw, 10);
+  const end = endRaw ? parseInt(endRaw, 10) : total - 1;
+  if (Number.isNaN(start) || Number.isNaN(end) || start < 0 || end < start || start >= total) return null;
+  return { start, end: Math.min(end, total - 1) };
+}
 
 function esc(v) {
   return String(v ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
@@ -686,6 +702,72 @@ app.get("/audio", async (req, res) => {
   res.redirect(c.audio_url);
 });
 
+
+app.post("/admin/upload-bg-video", requireAuth, express.raw({ type: ["video/*", "application/octet-stream"], limit: "80mb" }), async (req, res) => {
+  try {
+    const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || []);
+    if (!buf.length) return res.status(400).json({ ok: false, error: "Keine Video-Daten empfangen." });
+    const contentType = req.headers["content-type"] || "application/octet-stream";
+    if (!contentType.startsWith("video/") && contentType !== "application/octet-stream") return res.status(415).json({ ok: false, error: "Nur Video-Dateien sind erlaubt." });
+    const filename = safeFileName(req.query.name || "background-video");
+    await pool.query(
+      `INSERT INTO bio_assets (asset_key, filename, content_type, data, size_bytes, updated_at)
+       VALUES ($1, $2, $3, $4, $5, now())
+       ON CONFLICT (asset_key) DO UPDATE SET filename = EXCLUDED.filename, content_type = EXCLUDED.content_type, data = EXCLUDED.data, size_bytes = EXCLUDED.size_bytes, updated_at = now()`,
+      ["bg_video", filename, contentType, buf, buf.length]
+    );
+    const c = await getConfig();
+    c.bg_type = "video";
+    c.bg_video_url = `/asset/bg-video?v=${Date.now()}`;
+    await saveConfig(c);
+    res.json({ ok: true, url: c.bg_video_url, filename, size: buf.length, content_type: contentType });
+  } catch (err) {
+    console.error("[upload-bg-video]", err);
+    res.status(500).json({ ok: false, error: "Video konnte nicht gespeichert werden." });
+  }
+});
+
+app.post("/admin/delete-bg-video", requireAuth, async (req, res) => {
+  try {
+    await pool.query("DELETE FROM bio_assets WHERE asset_key = $1", ["bg_video"]);
+    const c = await getConfig();
+    if (String(c.bg_video_url || "").startsWith("/asset/bg-video")) c.bg_video_url = "";
+    if (c.bg_type === "video") c.bg_type = "solid";
+    await saveConfig(c);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[delete-bg-video]", err);
+    res.status(500).json({ ok: false });
+  }
+});
+
+app.get("/asset/bg-video", async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT filename, content_type, data, size_bytes, updated_at FROM bio_assets WHERE asset_key = $1", ["bg_video"]);
+    if (!rows.length) return res.status(404).send("no background video");
+    const asset = rows[0];
+    const buf = Buffer.isBuffer(asset.data) ? asset.data : Buffer.from(asset.data);
+    const total = buf.length;
+    const contentType = asset.content_type || "video/mp4";
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Content-Disposition", `inline; filename="${safeFileName(asset.filename || "background-video")}"`);
+    const range = parseRange(req.headers.range, total);
+    if (range) {
+      res.status(206);
+      res.setHeader("Content-Range", `bytes ${range.start}-${range.end}/${total}`);
+      res.setHeader("Content-Length", range.end - range.start + 1);
+      return res.end(buf.slice(range.start, range.end + 1));
+    }
+    res.setHeader("Content-Length", total);
+    res.end(buf);
+  } catch (err) {
+    console.error("[asset-bg-video]", err);
+    res.status(500).send("video error");
+  }
+});
+
 app.get("/admin", (req, res) => {
   if (req.session.authenticated) return res.redirect("/admin/dashboard");
   res.send(`<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Admin</title>
@@ -1213,7 +1295,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
         <video id="bg_video_preview" src="${c.bg_video_url||""}" muted loop playsinline controls style="width:100%;max-height:160px;object-fit:cover;border-radius:14px;border:1px solid var(--b2);background:#050505;display:${c.bg_video_url?"block":"none"}"></video>
         <p style="font-family:'Space Mono',monospace;font-size:10px;line-height:1.6;color:var(--m);margin-top:8px;">Tipp: Für Render/Postgres am besten kurze komprimierte MP4/WebM Videos nutzen. Maximal erlaubt sind 120MB, besser unter 30MB.</p>
       </div>
-      <div class="fi"><label>oder Video URL / Data URL</label><input type="url" id="bg_video_url" value="${c.bg_video_url||""}" placeholder="https://...video.mp4" oninput="syncBgVideoPreview(this.value)"></div>
+      <div class="fi"><label>oder externe Video URL</label><input type="url" id="bg_video_url" value="${c.bg_video_url||""}" placeholder="https://...video.mp4 oder /asset/bg-video" oninput="syncBgVideoPreview(this.value)"></div>
       <div class="fi"><label>Overlay Deckkraft (0=kein, 1=schwarz)</label>
         <div style="display:flex;align-items:center;gap:10px;">
           <input type="range" id="bg_overlay_opacity" min="0" max="1" step="0.05" value="${c.bg_overlay_opacity||0.3}" style="flex:1;accent-color:var(--a)" oninput="this.nextElementSibling.textContent=Math.round(this.value*100)+'%';">
@@ -1399,12 +1481,18 @@ function formatBytes(bytes){
 function syncBgVideoPreview(value){
   var preview=document.getElementById("bg_video_preview");
   var label=document.getElementById("bg_video_filename");
+  if(value && String(value).startsWith("data:video")){
+    alert("Base64/Data-URL Videos sind deaktiviert, weil sie den Browser crashen können. Bitte den Button Video vom PC wählen benutzen.");
+    value="";
+    var urlInput=document.getElementById("bg_video_url");
+    if(urlInput) urlInput.value="";
+  }
   if(preview){preview.src=value||"";preview.style.display=value?"block":"none";try{preview.load();}catch(e){}}
   if(label) label.textContent=value?"✓ Video gesetzt":"Keine Datei";
   try{markDirty();}catch(e){}
 }
 
-function handleVideoUpload(input){
+async function handleVideoUpload(input){
   var file=input && input.files && input.files[0];
   if(!file) return;
   if(file.type && !file.type.startsWith("video/")){
@@ -1412,35 +1500,46 @@ function handleVideoUpload(input){
     input.value="";
     return;
   }
-  var max=120*1024*1024;
+  var max=80*1024*1024;
   if(file.size>max){
-    alert("Das Video ist zu groß ("+formatBytes(file.size)+"). Bitte komprimiere es auf unter 120MB, besser unter 30MB, sonst wird Render/Postgres extrem langsam.");
+    alert("Das Video ist zu groß ("+formatBytes(file.size)+"). Bitte komprimiere es auf unter 80MB, ideal unter 20-30MB. Sonst wird Browser/Render/Postgres zu schwer.");
     input.value="";
     return;
   }
   var label=document.getElementById("bg_video_filename");
-  if(label) label.textContent="Lade "+file.name+" ("+formatBytes(file.size)+") ...";
-  var reader=new FileReader();
-  reader.onload=function(){
-    var dataUrl=reader.result;
+  var btn=input.parentElement && input.parentElement.querySelector("button");
+  if(label) label.textContent="Upload läuft: "+file.name+" ("+formatBytes(file.size)+") ...";
+  if(btn) btn.disabled=true;
+  try{
+    var res=await fetch("/admin/upload-bg-video?name="+encodeURIComponent(file.name),{
+      method:"POST",
+      headers:{"Content-Type":file.type||"application/octet-stream"},
+      body:file
+    });
+    var json=await res.json().catch(function(){return null;});
+    if(!res.ok || !json || !json.ok) throw new Error((json && json.error) || "Upload fehlgeschlagen");
     var urlInput=document.getElementById("bg_video_url");
     var type=document.getElementById("bg_type");
-    if(urlInput) urlInput.value=dataUrl;
+    if(urlInput) urlInput.value=json.url;
     if(type) type.value="video";
     updBg();
-    syncBgVideoPreview(dataUrl);
-    if(label) label.textContent="✓ "+file.name+" ("+formatBytes(file.size)+")";
+    syncBgVideoPreview(json.url);
+    if(label) label.textContent="✓ "+file.name+" ("+formatBytes(file.size)+") hochgeladen";
     try{markDirty();}catch(e){}
-  };
-  reader.onerror=function(){alert("Video konnte nicht gelesen werden."); if(label) label.textContent="Fehler beim Lesen";};
-  reader.readAsDataURL(file);
+  }catch(err){
+    alert("Video Upload fehlgeschlagen: "+(err.message||err));
+    if(label) label.textContent="Upload Fehler";
+  }finally{
+    if(btn) btn.disabled=false;
+  }
 }
 
-function clearBgVideo(){
+async function clearBgVideo(){
   var inp=document.getElementById("bg_video_file");
   var url=document.getElementById("bg_video_url");
   if(inp) inp.value="";
   if(url) url.value="";
+  try{await fetch("/admin/delete-bg-video",{method:"POST"});}catch(e){}
   syncBgVideoPreview("");
   try{markDirty();}catch(e){}
 }
@@ -1691,6 +1790,9 @@ document.addEventListener("DOMContentLoaded",function(){
 app.post("/admin/save", requireAuth, async (req, res) => {
   const current = await getConfig();
   const { newPassword, ...fields } = req.body;
+  if (typeof fields.bg_video_url === "string" && fields.bg_video_url.startsWith("data:video")) {
+    fields.bg_video_url = current.bg_video_url && current.bg_video_url.startsWith("/asset/bg-video") ? current.bg_video_url : "";
+  }
   const updated = { ...current, ...fields, password: newPassword ? await bcrypt.hash(newPassword, 10) : current.password };
   await saveConfig(updated);
   res.json({ ok: true });
