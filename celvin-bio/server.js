@@ -2,6 +2,7 @@ const express = require("express");
 const session = require("express-session");
 const bcrypt = require("bcrypt");
 const { Pool } = require("pg");
+const crypto = require("crypto");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -58,11 +59,21 @@ const DEFAULT_CONFIG = {
     { platform: "instagram", username: "yourusername",custom_url: "" },
     { platform: "twitter",   username: "yourusername",custom_url: "" },
   ],
-  spotify_url: "", audio_url: "", audio_autoplay: false, audio_loop: true, audio_volume: 0.5, audio_title: "", bg_video_url: "", bg_overlay_opacity: 0.3, bg_blur_amount: 0, card_shadow: true, show_song_widget: false, custom_css: "", meta_title: "", meta_description: "", favicon_url: "", custom_head: "", custom_js: "", badge_style: "pill", profile_layout: "center", page_width: "440", card_radius: "24", avatar_size: "90", feature_flags: {}, views: 0, password: ""
+  spotify_url: "", audio_url: "", audio_autoplay: false, audio_loop: true, audio_volume: 0.5, audio_title: "", bg_video_url: "", bg_overlay_opacity: 0.3, bg_blur_amount: 0, card_shadow: true, show_song_widget: false, custom_css: "", meta_title: "", meta_description: "", favicon_url: "", custom_head: "", custom_js: "", badge_style: "pill", profile_layout: "center", page_width: "440", card_radius: "24", avatar_size: "90", feature_flags: {}, views: 0,
+  analytics_enabled: true, click_tracking: true, announcement_enabled: false, announcement_text: "", announcement_url: "",
+  enter_screen_enabled: false, enter_screen_text: "click to enter", share_bar_enabled: true, copy_button_enabled: true, theme_toggle_enabled: false,
+  profile_title: "", hero_subtitle: "", quote_enabled: false, quote_text: "", cta_enabled: false, cta_label: "", cta_url: "",
+  stats_enabled: false, stats_items: "", gear_enabled: false, gear_items: "", timeline_enabled: false, timeline_items: "",
+  availability_enabled: false, availability_text: "", footer_note: "", watermark_enabled: false,
+  disable_right_click: false, disable_selection: false, analytics_public_badge: false,
+  pwa_name: "Bio Page", pwa_color: "#c8ff00", seo_keywords: "", canonical_url: "",
+  password: ""
 };
 
 async function initDB() {
   await pool.query(`CREATE TABLE IF NOT EXISTS bio_config (id SERIAL PRIMARY KEY, data JSONB NOT NULL DEFAULT '{}')`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS bio_events (id SERIAL PRIMARY KEY, type TEXT NOT NULL, path TEXT, link_index INTEGER, link_platform TEXT, link_label TEXT, referrer TEXT, user_agent TEXT, ip_hash TEXT, created_at TIMESTAMPTZ DEFAULT now())`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS bio_snapshots (id SERIAL PRIMARY KEY, label TEXT, data JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT now())`);
   const { rows } = await pool.query("SELECT id FROM bio_config LIMIT 1");
   if (rows.length === 0) {
     const d = { ...DEFAULT_CONFIG, password: await bcrypt.hash("admin123", 10) };
@@ -295,11 +306,140 @@ const ICONS = {
   link:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`
 };
 
+/* ===== V4 ULTRA HELPERS: analytics, public modules, safe mini CMS ===== */
+function cleanLines(input, max = 20) {
+  return String(input || "").split(/\r?\n/).map(s => s.trim()).filter(Boolean).slice(0, max);
+}
+function parseKVLines(input, max = 12) {
+  return cleanLines(input, max).map((line) => {
+    const parts = line.split(/[:|—-]/);
+    if (parts.length >= 2) return { k: parts.shift().trim(), v: parts.join("-").trim() };
+    return { k: line, v: "" };
+  });
+}
+function publicUrl(req) {
+  const proto = req.headers["x-forwarded-proto"] || req.protocol || "https";
+  const host = req.headers["x-forwarded-host"] || req.headers.host || "localhost";
+  return `${proto}://${host}`;
+}
+function hashIp(req) {
+  const raw = String(req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "").split(",")[0].trim();
+  const salt = process.env.ANALYTICS_SALT || process.env.SESSION_SECRET || "bio-analytics";
+  return crypto.createHash("sha256").update(raw + salt).digest("hex").slice(0, 20);
+}
+async function trackEvent(req, type, extra = {}) {
+  try {
+    const c = extra.config || await getConfig();
+    if (c.analytics_enabled === false) return;
+    await pool.query(`INSERT INTO bio_events(type,path,link_index,link_platform,link_label,referrer,user_agent,ip_hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, [
+      type,
+      req.originalUrl || req.url || "",
+      Number.isFinite(extra.link_index) ? extra.link_index : null,
+      extra.link_platform || null,
+      extra.link_label || null,
+      String(req.headers.referer || req.headers.referrer || "").slice(0, 500),
+      String(req.headers["user-agent"] || "").slice(0, 500),
+      hashIp(req)
+    ]);
+  } catch (e) { console.warn("analytics skipped:", e.message); }
+}
+function v4PublicCSS(c) {
+  return `
+/* ===== V4 ULTRA PUBLIC MODULES ===== */
+.ux-announcement{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:50;max-width:min(720px,calc(100vw - 24px));display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid color-mix(in srgb,var(--a) 38%,transparent);border-radius:999px;background:rgba(8,8,10,.72);backdrop-filter:blur(18px);box-shadow:0 18px 70px rgba(0,0,0,.28);font-family:'Space Mono',monospace;font-size:11px;color:var(--t);text-decoration:none}.ux-announcement b{color:var(--a)}
+.ux-section{margin-top:12px;border:1px solid color-mix(in srgb,var(--t) 9%,transparent);border-radius:16px;padding:12px 14px;background:color-mix(in srgb,var(--t) 3%,transparent);font-family:'Space Mono',monospace}.ux-section h2{font-family:inherit;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:var(--a);margin-bottom:8px}.ux-section p,.ux-section li{font-size:11px;line-height:1.6;color:var(--m)}.ux-list{display:grid;gap:7px;list-style:none}.ux-kv{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed color-mix(in srgb,var(--t) 9%,transparent);padding-bottom:5px}.ux-kv:last-child{border-bottom:0;padding-bottom:0}.ux-kv strong{color:var(--t);font-weight:700}.ux-cta{display:flex;justify-content:center;margin-top:12px}.ux-cta a{display:inline-flex;align-items:center;gap:8px;text-decoration:none;background:var(--a);color:#050505;border-radius:999px;padding:10px 15px;font-weight:800;font-size:12px}.ux-footer{margin-top:14px;text-align:center;font-family:'Space Mono',monospace;font-size:10px;color:color-mix(in srgb,var(--t) 28%,transparent)}
+.ux-share-dock{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:80;display:flex;flex-direction:column;gap:8px}.ux-share-dock button,.ux-theme-toggle{width:42px;height:42px;border-radius:14px;border:1px solid color-mix(in srgb,var(--a) 32%,transparent);background:rgba(8,8,10,.72);color:var(--a);backdrop-filter:blur(16px);cursor:pointer;font-weight:900}.ux-copy-toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(10px);opacity:0;z-index:90;background:var(--a);color:#050505;border-radius:999px;padding:9px 16px;font-family:'Space Mono',monospace;font-size:11px;transition:.2s}.ux-copy-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.ux-enter{position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.82);backdrop-filter:blur(18px);cursor:pointer;transition:.35s}.ux-enter.hidden{opacity:0;pointer-events:none}.ux-enter span{font-family:'Space Mono',monospace;color:var(--a);border:1px solid color-mix(in srgb,var(--a) 36%,transparent);border-radius:999px;padding:12px 18px;animation:pulse 2s infinite}.ux-watermark{position:fixed;left:14px;bottom:12px;font-family:'Space Mono',monospace;font-size:10px;color:color-mix(in srgb,var(--t) 20%,transparent);z-index:60}.ux-analytics-pill{position:fixed;left:14px;top:14px;font-family:'Space Mono',monospace;font-size:10px;color:var(--a);border:1px solid color-mix(in srgb,var(--a) 30%,transparent);border-radius:999px;padding:6px 10px;background:rgba(0,0,0,.45);z-index:60}
+body.ux-light-mode{filter:invert(1) hue-rotate(180deg)}body.ux-light-mode img,body.ux-light-mode video,body.ux-light-mode iframe{filter:invert(1) hue-rotate(180deg)}
+@media(max-width:760px){.ux-share-dock{right:12px;top:auto;bottom:14px;transform:none;flex-direction:row}.ux-announcement{top:8px}.ux-section{padding:10px 12px}}
+${c.disable_selection ? "body{user-select:none;-webkit-user-select:none}" : ""}
+`;
+}
+function v4PublicTopLayers(c) {
+  const ann = c.announcement_enabled && c.announcement_text ? (c.announcement_url ? `<a class="ux-announcement" href="${esc(c.announcement_url)}" target="_blank"><b>update</b><span>${esc(c.announcement_text)}</span></a>` : `<div class="ux-announcement"><b>update</b><span>${esc(c.announcement_text)}</span></div>`) : "";
+  const enter = c.enter_screen_enabled ? `<div class="ux-enter" id="uxEnter"><span>${esc(c.enter_screen_text || "click to enter")}</span></div>` : "";
+  const dock = (c.share_bar_enabled || c.copy_button_enabled || c.theme_toggle_enabled) ? `<div class="ux-share-dock">${c.copy_button_enabled?`<button type="button" onclick="uxCopyLink()" title="Link kopieren">⛓</button>`:""}${c.share_bar_enabled?`<button type="button" onclick="uxNativeShare()" title="Teilen">↗</button>`:""}${c.theme_toggle_enabled?`<button class="ux-theme-toggle" type="button" onclick="uxToggleTheme()" title="Theme">◐</button>`:""}</div><div class="ux-copy-toast" id="uxCopyToast">kopiert</div>` : "";
+  const wm = c.watermark_enabled ? `<div class="ux-watermark">made with bio control</div>` : "";
+  const analytics = c.analytics_public_badge ? `<div class="ux-analytics-pill">${Number(c.views||0)} views</div>` : "";
+  return ann + enter + dock + wm + analytics;
+}
+function v4PublicSections(c) {
+  let html = "";
+  if (c.profile_title || c.hero_subtitle) html += `<div class="ux-section"><h2>${esc(c.profile_title || "profile")}</h2><p>${esc(c.hero_subtitle || "")}</p></div>`;
+  if (c.quote_enabled && c.quote_text) html += `<div class="ux-section"><h2>quote</h2><p>“${esc(c.quote_text)}”</p></div>`;
+  if (c.availability_enabled && c.availability_text) html += `<div class="ux-section"><h2>status</h2><p>${esc(c.availability_text)}</p></div>`;
+  if (c.stats_enabled && c.stats_items) html += `<div class="ux-section"><h2>stats</h2><div class="ux-list">` + parseKVLines(c.stats_items, 8).map(x => `<div class="ux-kv"><strong>${esc(x.k)}</strong><span>${esc(x.v)}</span></div>`).join("") + `</div></div>`;
+  if (c.gear_enabled && c.gear_items) html += `<div class="ux-section"><h2>setup</h2><ul class="ux-list">` + cleanLines(c.gear_items, 12).map(x => `<li>${esc(x)}</li>`).join("") + `</ul></div>`;
+  if (c.timeline_enabled && c.timeline_items) html += `<div class="ux-section"><h2>timeline</h2><ul class="ux-list">` + cleanLines(c.timeline_items, 10).map(x => `<li>${esc(x)}</li>`).join("") + `</ul></div>`;
+  if (c.cta_enabled && c.cta_label && c.cta_url) html += `<div class="ux-cta"><a href="${esc(c.cta_url)}" target="_blank">${esc(c.cta_label)} ↗</a></div>`;
+  if (c.footer_note) html += `<div class="ux-footer">${esc(c.footer_note)}</div>`;
+  return html;
+}
+function v4PublicScripts(c) {
+  return `<script>
+(function(){
+  var enter=document.getElementById('uxEnter'); if(enter){enter.addEventListener('click',function(){enter.classList.add('hidden');setTimeout(function(){enter.remove()},400);});}
+  window.uxCopyLink=function(){navigator.clipboard&&navigator.clipboard.writeText(location.href).catch(function(){});var t=document.getElementById('uxCopyToast');if(t){t.classList.add('show');setTimeout(function(){t.classList.remove('show')},1300)}};
+  window.uxNativeShare=function(){if(navigator.share){navigator.share({title:document.title,url:location.href}).catch(function(){});}else{uxCopyLink();}};
+  window.uxToggleTheme=function(){document.body.classList.toggle('ux-light-mode');try{localStorage.setItem('uxLight',document.body.classList.contains('ux-light-mode')?'1':'0')}catch(e){}};
+  try{if(localStorage.getItem('uxLight')==='1')document.body.classList.add('ux-light-mode')}catch(e){}
+  ${c.disable_right_click ? "document.addEventListener('contextmenu',function(e){e.preventDefault()});" : ""}
+})();
+<\/script>`;
+}
+
 function getLinkUrl(link) {
   const p = PLATFORMS[link.platform] || PLATFORMS.link;
   if (link.custom_url) return link.custom_url;
   if (!p.url) return null;
   return p.url.replace("{u}", link.username || "");
+}
+
+
+/* ===== V5 EXTREME HELPERS: component engine, public command menu, reactions ===== */
+function v5Bool(v){ return v === true || v === "true" || v === "on" || v === 1 || v === "1"; }
+function v5Rows(input, max = 20, keys = ["title","value","extra"]) {
+  return cleanLines(input, max).map((line) => {
+    const parts = line.split("|").map(x => x.trim());
+    const row = {}; keys.forEach((k,i)=>row[k]=parts[i]||""); return row;
+  });
+}
+function v5PublicCSS(c){
+  const a = safeColor(c.accent, "#c8ff00") || "#c8ff00";
+  return `
+/* ===== V5 EXTREME PUBLIC ===== */
+.v5-root{position:relative;z-index:4;width:100%;max-width:520px;margin-top:14px;display:grid;gap:12px}.v5-card{border:1px solid color-mix(in srgb,var(--t) 10%,transparent);border-radius:18px;background:rgba(255,255,255,.045);backdrop-filter:blur(18px);padding:14px;font-family:'Space Mono',monospace;box-shadow:0 16px 60px rgba(0,0,0,.18)}.v5-card h2{font-size:10px;text-transform:uppercase;letter-spacing:.16em;color:var(--a);margin-bottom:9px}.v5-card p,.v5-card li{font-size:11px;line-height:1.65;color:var(--m)}.v5-card strong{color:var(--t)}.v5-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.v5-mini{border:1px solid color-mix(in srgb,var(--t) 10%,transparent);border-radius:14px;padding:10px;background:color-mix(in srgb,var(--t) 4%,transparent)}.v5-mini b{display:block;font-size:13px;color:var(--t);margin-bottom:2px}.v5-mini span{font-size:10px;color:var(--m)}.v5-tags{display:flex;gap:7px;flex-wrap:wrap}.v5-tag{font-size:10px;border:1px solid color-mix(in srgb,var(--a) 30%,transparent);border-radius:999px;padding:5px 9px;color:var(--a);background:color-mix(in srgb,var(--a) 7%,transparent)}.v5-gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.v5-gallery a{position:relative;overflow:hidden;border-radius:13px;min-height:76px;background:#111;border:1px solid color-mix(in srgb,var(--t) 10%,transparent)}.v5-gallery img{width:100%;height:100%;object-fit:cover;display:block;transition:.25s}.v5-gallery a:hover img{transform:scale(1.08)}.v5-gallery small{position:absolute;left:6px;bottom:6px;background:rgba(0,0,0,.55);border-radius:999px;padding:3px 7px;font-size:9px;color:#fff}.v5-feed{display:grid;gap:8px}.v5-feeditem{display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:flex-start}.v5-dot{width:9px;height:9px;border-radius:99px;background:var(--a);box-shadow:0 0 14px var(--a);margin-top:4px}.v5-feeditem b{display:block;font-size:11px;color:var(--t)}.v5-feeditem span{font-size:10px;color:var(--m)}.v5-faq details{border-top:1px solid color-mix(in srgb,var(--t) 9%,transparent);padding:8px 0}.v5-faq details:first-child{border-top:0}.v5-faq summary{cursor:pointer;font-size:11px;color:var(--t);font-weight:700}.v5-faq p{margin-top:7px}.v5-count{display:flex;justify-content:space-between;gap:8px}.v5-count div{flex:1;text-align:center;border:1px solid color-mix(in srgb,var(--a) 20%,transparent);border-radius:14px;padding:9px 5px;background:color-mix(in srgb,var(--a) 5%,transparent)}.v5-count b{display:block;font-size:19px;color:var(--a)}.v5-count span{font-size:9px;color:var(--m);text-transform:uppercase}.v5-aura{height:9px;border-radius:999px;background:color-mix(in srgb,var(--t) 10%,transparent);overflow:hidden}.v5-aura i{display:block;height:100%;width:calc(var(--v5-aura,78) * 1%);background:linear-gradient(90deg,var(--a),#fff);box-shadow:0 0 18px var(--a)}.v5-services{display:grid;gap:8px}.v5-service{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid color-mix(in srgb,var(--t) 9%,transparent);border-radius:14px;padding:10px}.v5-service b{font-size:11px;color:var(--t)}.v5-service span{font-size:10px;color:var(--a)}.v5-reactions{display:flex;gap:8px;flex-wrap:wrap}.v5-react{border:1px solid color-mix(in srgb,var(--a) 24%,transparent);border-radius:999px;padding:8px 10px;background:rgba(0,0,0,.18);color:var(--t);cursor:pointer;font-size:13px;transition:.18s}.v5-react:hover{transform:translateY(-2px);border-color:var(--a)}.v5-terminal{font-family:'Space Mono',monospace;border:1px solid color-mix(in srgb,var(--a) 26%,transparent);border-radius:16px;background:rgba(0,0,0,.35);padding:12px;box-shadow:inset 0 0 24px color-mix(in srgb,var(--a) 5%,transparent)}.v5-terminal code{display:block;white-space:pre-wrap;color:var(--a);font-size:10px;line-height:1.55}.v5-playlist{display:grid;gap:8px}.v5-song{display:flex;align-items:center;gap:10px;border:1px solid color-mix(in srgb,var(--t) 9%,transparent);border-radius:14px;padding:9px;text-decoration:none}.v5-song i{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--a),transparent);display:block}.v5-song b{font-size:11px;color:var(--t)}.v5-song span{display:block;font-size:10px;color:var(--m)}
+.v5-nav{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:120;display:flex;gap:7px;padding:8px;border:1px solid color-mix(in srgb,var(--a) 25%,transparent);border-radius:999px;background:rgba(6,6,8,.68);backdrop-filter:blur(18px);box-shadow:0 20px 80px rgba(0,0,0,.35)}.v5-nav a,.v5-nav button{border:0;background:transparent;color:var(--t);font-family:'Space Mono',monospace;font-size:10px;text-decoration:none;padding:8px 10px;border-radius:999px;cursor:pointer}.v5-nav a:hover,.v5-nav button:hover{background:color-mix(in srgb,var(--a) 12%,transparent);color:var(--a)}.v5-command{position:fixed;inset:0;z-index:9997;display:none;align-items:flex-start;justify-content:center;padding-top:12vh;background:rgba(0,0,0,.62);backdrop-filter:blur(14px)}.v5-command.show{display:flex}.v5-command-box{width:min(620px,calc(100vw - 26px));border:1px solid color-mix(in srgb,var(--a) 28%,transparent);border-radius:22px;background:#09090b;box-shadow:0 30px 100px rgba(0,0,0,.55);padding:12px}.v5-command input{width:100%;border:1px solid color-mix(in srgb,var(--t) 10%,transparent);border-radius:14px;background:#050505;color:var(--t);padding:13px 14px;font-family:'Space Mono',monospace;outline:none}.v5-command-list{display:grid;gap:6px;margin-top:10px}.v5-command-list button{display:flex;justify-content:space-between;border:0;border-radius:12px;background:transparent;color:var(--t);padding:10px 12px;font-family:'Space Mono',monospace;font-size:11px;text-align:left;cursor:pointer}.v5-command-list button:hover{background:color-mix(in srgb,var(--a) 10%,transparent);color:var(--a)}.v5-secret{display:none}.v5-secret.unlocked{display:block}.v5-orb{position:fixed;inset:auto auto 10% 8%;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,${a}22 0,transparent 68%);filter:blur(4px);pointer-events:none;z-index:0;animation:v5drift 7s ease-in-out infinite}@keyframes v5drift{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(28px,-18px) scale(1.1)}}.v5-spotlight{position:fixed;inset:0;pointer-events:none;z-index:1;background:radial-gradient(circle at var(--mx,50%) var(--my,50%),color-mix(in srgb,var(--a) 10%,transparent),transparent 28%)}.v5-marquee{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:70;width:min(720px,calc(100vw - 24px));overflow:hidden;white-space:nowrap;padding:8px 0}.v5-marquee span{display:inline-block;padding-left:100%;animation:v5marq 18s linear infinite}@keyframes v5marq{to{transform:translateX(-100%)}}body.v5-soft-grain:before{content:'';position:fixed;inset:0;z-index:2;pointer-events:none;opacity:.08;background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(%23n)" opacity=".55"/></svg>')}body.v5-premium-aura .card{box-shadow:0 0 0 1px color-mix(in srgb,var(--a) 28%,transparent),0 28px 120px color-mix(in srgb,var(--a) 18%,transparent),0 30px 90px rgba(0,0,0,.4)}body.v5-link-magnet .link-btn:hover{transform:translateX(8px) scale(1.015)}body.v5-badge-rainbow .badge{animation:v5hue 5s linear infinite}@keyframes v5hue{to{filter:hue-rotate(360deg)}}body.v5-tilt-avatar .avi:hover{transform:rotate(-3deg) scale(1.04)}body.v5-audio-glass .audio-widget .aw-inner{border-radius:18px;background:rgba(255,255,255,.08)!important}
+@media(max-width:760px){.v5-grid,.v5-gallery{grid-template-columns:1fr 1fr}.v5-root{max-width:440px}.v5-nav{bottom:10px;max-width:calc(100vw - 18px);overflow-x:auto}.v5-count b{font-size:16px}}
+`;
+}
+function renderV5PublicSuite(c){
+  const fx = c.v5_fx || {};
+  const classes=[]; if(fx.soft_grain)classes.push('v5-soft-grain'); if(fx.premium_aura)classes.push('v5-premium-aura'); if(fx.link_magnet)classes.push('v5-link-magnet'); if(fx.badge_rainbow)classes.push('v5-badge-rainbow'); if(fx.tilt_avatar)classes.push('v5-tilt-avatar'); if(fx.audio_glass)classes.push('v5-audio-glass');
+  let html = `<style>${v5PublicCSS(c)}</style>`;
+  if(classes.length) html += `<script>document.body.classList.add(${classes.map(x=>JSON.stringify(x)).join(',')});<\/script>`;
+  if(fx.floating_orb) html += `<div class="v5-orb"></div>`;
+  if(fx.mouse_spotlight) html += `<div class="v5-spotlight" id="v5Spotlight"></div>`;
+  if(!v5Bool(c.v5_enabled)){ html += `<script>(function(){var s=document.getElementById('v5Spotlight');if(s)document.addEventListener('pointermove',function(e){document.documentElement.style.setProperty('--mx',e.clientX+'px');document.documentElement.style.setProperty('--my',e.clientY+'px')});})();<\/script>`; return html; }
+  const sections=[];
+  const aura=Math.max(0,Math.min(100,Number(c.v5_aura_score||78)));
+  if(v5Bool(c.v5_aura_enabled)) sections.push(`<section class="v5-card"><h2>${esc(c.v5_aura_title||'Aura Level')}</h2><div class="v5-aura" style="--v5-aura:${aura}"><i></i></div><p style="margin-top:8px">${esc(c.v5_aura_text||(aura+'% profile energy'))}</p></section>`);
+  const tags=cleanLines(c.v5_tags,36); if(tags.length) sections.push(`<section class="v5-card"><h2>${esc(c.v5_tags_title||'tags')}</h2><div class="v5-tags">${tags.map(t=>`<span class="v5-tag">${esc(t)}</span>`).join('')}</div></section>`);
+  const highlights=v5Rows(c.v5_highlights,12,['title','value','extra']); if(highlights.length) sections.push(`<section class="v5-card"><h2>${esc(c.v5_highlights_title||'highlights')}</h2><div class="v5-grid">${highlights.map(x=>`<div class="v5-mini"><b>${esc(x.title)}</b><span>${esc(x.value||x.extra)}</span></div>`).join('')}</div></section>`);
+  const services=v5Rows(c.v5_services,12,['title','price','desc']); if(services.length) sections.push(`<section class="v5-card"><h2>${esc(c.v5_services_title||'services')}</h2><div class="v5-services">${services.map(x=>`<div class="v5-service"><div><b>${esc(x.title)}</b><p>${esc(x.desc)}</p></div><span>${esc(x.price)}</span></div>`).join('')}</div></section>`);
+  const gallery=v5Rows(c.v5_gallery,9,['label','url','href']); if(gallery.length) sections.push(`<section class="v5-card"><h2>${esc(c.v5_gallery_title||'gallery')}</h2><div class="v5-gallery">${gallery.map(x=>`<a href="${esc(x.href||x.url||'#')}" target="_blank"><img src="${esc(x.url)}" alt=""><small>${esc(x.label)}</small></a>`).join('')}</div></section>`);
+  const feed=v5Rows(c.v5_feed,18,['title','text','date']); if(feed.length) sections.push(`<section class="v5-card"><h2>${esc(c.v5_feed_title||'feed')}</h2><div class="v5-feed">${feed.map(x=>`<div class="v5-feeditem"><i class="v5-dot"></i><div><b>${esc(x.title)}</b><span>${esc(x.text)} ${x.date?'· '+esc(x.date):''}</span></div></div>`).join('')}</div></section>`);
+  const faq=v5Rows(c.v5_faq,12,['q','a']); if(faq.length) sections.push(`<section class="v5-card v5-faq"><h2>${esc(c.v5_faq_title||'faq')}</h2>${faq.map(x=>`<details><summary>${esc(x.q)}</summary><p>${esc(x.a)}</p></details>`).join('')}</section>`);
+  if(v5Bool(c.v5_countdown_enabled)&&c.v5_countdown_date) sections.push(`<section class="v5-card"><h2>${esc(c.v5_countdown_title||'countdown')}</h2><div class="v5-count" data-v5-countdown="${esc(c.v5_countdown_date)}"><div><b data-d>0</b><span>days</span></div><div><b data-h>0</b><span>hours</span></div><div><b data-m>0</b><span>min</span></div><div><b data-s>0</b><span>sec</span></div></div></section>`);
+  const songs=v5Rows(c.v5_playlist,10,['title','artist','url']); if(songs.length) sections.push(`<section class="v5-card"><h2>${esc(c.v5_playlist_title||'playlist')}</h2><div class="v5-playlist">${songs.map(x=>`<a class="v5-song" href="${esc(x.url||'#')}" target="_blank"><i></i><div><b>${esc(x.title)}</b><span>${esc(x.artist)}</span></div></a>`).join('')}</div></section>`);
+  if(v5Bool(c.v5_terminal_enabled)) sections.push(`<section class="v5-terminal"><code>${esc(c.v5_terminal_text||'> booting profile...\n> status: online\n> aura: locked in')}</code></section>`);
+  if(v5Bool(c.v5_secret_enabled)) sections.push(`<section class="v5-card v5-secret" id="v5Secret"><h2>${esc(c.v5_secret_title||'secret')}</h2><p>${esc(c.v5_secret_text||'hidden section unlocked')}</p></section>`);
+  if(v5Bool(c.v5_reactions_enabled)){const reacts=cleanLines(c.v5_reactions||'🔥\n🖤\n💎\n👀',10);sections.push(`<section class="v5-card"><h2>${esc(c.v5_reactions_title||'react')}</h2><div class="v5-reactions">${reacts.map(r=>`<button type="button" class="v5-react" data-reaction="${esc(r)}">${esc(r)}</button>`).join('')}</div></section>`);}
+  if(c.v5_marquee_text) html += `<div class="v5-card v5-marquee"><span>${esc(c.v5_marquee_text)}</span></div>`;
+  if(c.v5_nav_enabled!==false) html += `<nav class="v5-nav"><a href="#" onclick="scrollTo({top:0,behavior:'smooth'});return false">top</a>${(c.links||[]).slice(0,3).map((l,i)=>`<a href="${c.click_tracking===false?esc(getLinkUrl(l)||'#'):'/go/'+i}" target="_blank">${esc((PLATFORMS[l.platform]||PLATFORMS.link).name)}</a>`).join('')}<button type="button" onclick="v5OpenCommand()">cmd</button></nav>`;
+  html += `<div class="v5-root">${sections.join('')}</div><div class="v5-command" id="v5Command"><div class="v5-command-box"><input id="v5CommandInput" placeholder="search profile commands..." autocomplete="off"><div class="v5-command-list" id="v5CommandList"></div></div></div>`;
+  html += `<script>(function(){var spot=document.getElementById('v5Spotlight');if(spot)document.addEventListener('pointermove',function(e){document.documentElement.style.setProperty('--mx',e.clientX+'px');document.documentElement.style.setProperty('--my',e.clientY+'px')});document.querySelectorAll('[data-v5-countdown]').forEach(function(box){function tick(){var t=new Date(box.dataset.v5Countdown).getTime()-Date.now();if(!isFinite(t))t=0;t=Math.max(0,t);var d=Math.floor(t/86400000),h=Math.floor(t/3600000)%24,m=Math.floor(t/60000)%60,s=Math.floor(t/1000)%60;box.querySelector('[data-d]').textContent=d;box.querySelector('[data-h]').textContent=h;box.querySelector('[data-m]').textContent=m;box.querySelector('[data-s]').textContent=s}tick();setInterval(tick,1000)});document.querySelectorAll('.v5-react').forEach(function(btn){btn.onclick=function(){var r=btn.dataset.reaction||btn.textContent;btn.textContent=r+' ✓';try{fetch('/api/reaction',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reaction:r})})}catch(e){}}});var secret='${esc(c.v5_secret_code||'open')}',typed='';document.addEventListener('keydown',function(e){typed=(typed+e.key).slice(-32);if(secret&&typed.toLowerCase().includes(secret.toLowerCase())){var s=document.getElementById('v5Secret');if(s)s.classList.add('unlocked')}});var cmds=[['copy link',function(){navigator.clipboard&&navigator.clipboard.writeText(location.href)}],['top',function(){scrollTo({top:0,behavior:'smooth'})}],['unlock secret',function(){var s=document.getElementById('v5Secret');if(s)s.classList.add('unlocked')}],['theme invert',function(){document.body.classList.toggle('ux-light-mode')}]];window.v5OpenCommand=function(){var el=document.getElementById('v5Command');if(el){el.classList.add('show');setTimeout(function(){var i=document.getElementById('v5CommandInput');if(i)i.focus()},20);render('')}};function close(){var el=document.getElementById('v5Command');if(el)el.classList.remove('show')}function render(q){var list=document.getElementById('v5CommandList');if(!list)return;q=(q||'').toLowerCase();var f=cmds.filter(function(c){return !q||c[0].includes(q)});list.innerHTML=f.map(function(c,i){return '<button type="button" data-i="'+i+'"><span>'+c[0]+'</span><b>enter</b></button>'}).join('');list.querySelectorAll('button').forEach(function(b){b.onclick=function(){var fn=f[Number(b.dataset.i)]&&f[Number(b.dataset.i)][1];if(fn)fn();close()}})}var input=document.getElementById('v5CommandInput');if(input)input.addEventListener('input',function(){render(this.value)});document.addEventListener('keydown',function(e){if(e.key==='/'&&!/input|textarea/i.test(document.activeElement.tagName)){e.preventDefault();v5OpenCommand()}if(e.key==='Escape')close()});var cmd=document.getElementById('v5Command');if(cmd)cmd.addEventListener('click',function(e){if(e.target===cmd)close()})})();<\/script>`;
+  return html;
 }
 
 function renderBioPage(c) {
@@ -320,14 +460,15 @@ function renderBioPage(c) {
   const bioLines = (c.bio||"").split("\n").map(l=>`<span>${l}</span>`).join("<br>");
   const linkStyle = c.link_style || "default";
 
-  const links = (c.links||[]).map(l => {
+  const links = (c.links||[]).map((l, idx) => {
     const p = PLATFORMS[l.platform] || PLATFORMS.link;
     const url = getLinkUrl(l);
     const display = l.username || p.name;
     const color = p.color;
-    const isLink = url && !p.clickable;
+    const trackedUrl = (c.click_tracking === false) ? url : (url ? "/go/" + idx : null);
+    const isLink = trackedUrl && !p.clickable;
     const tag = isLink ? "a" : "div";
-    const hrefAttr = isLink ? `href="${url}" target="_blank"` : "";
+    const hrefAttr = isLink ? `href="${trackedUrl}" target="_blank" rel="noopener noreferrer"` : "";
     let style = isLink ? "" : "cursor:default;";
     if(isLink && linkStyle==="filled") style += `background:${color};border-color:${color};color:#000;`;
     if(isLink && linkStyle==="neon") style += `border-color:${color};box-shadow:0 0 10px color-mix(in srgb,${color} 30%,transparent);`;
@@ -484,9 +625,9 @@ ${patternCSS}${animBg}
 .link-username{font-size:.9rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .arr{margin-left:auto;font-size:.75rem;color:var(--m);transition:color .2s;flex-shrink:0}
 .link-btn:hover .arr{color:var(--lc,var(--a))}
-</style>${customCSS}
+${v4PublicCSS(c)}</style>${customCSS}
 </head><body class="${featureClasses}">
-${bgVideoHtml}${particles}${glow}
+${bgVideoHtml}${particles}${glow}${v4PublicTopLayers(c)}
 <div class="card">
   <div class="av"><div class="avi">${avatar}<div class="st"></div></div></div>
   <h1 class="name">@<span>${c.username||"username"}</span></h1>
@@ -495,16 +636,17 @@ ${bgVideoHtml}${particles}${glow}
   <p class="bio">${bioLines}</p>
   <div class="dv"></div>
   <div class="lks">${links}</div>
-  ${spotify}
+  ${spotify}${v4PublicSections(c)}
 </div>
 ${audioWidget}${views}
-${customJS?`<script>${customJS}</script>`:""}
+${customJS?`<script>${customJS}</script>`:""}${v4PublicScripts(c)}
 </body></html>`;
 }
 
 app.get("/", async (req, res) => {
   const c = await getConfig();
   if (c.show_views) { c.views = (c.views||0)+1; await saveConfig(c); }
+  trackEvent(req, "view", { config: c }).catch(()=>{});
   res.send(renderBioPage(c));
 });
 
@@ -559,6 +701,146 @@ app.post("/admin/login", async (req, res) => {
   if (await bcrypt.compare(req.body.password, c.password)) { req.session.authenticated = true; return res.redirect("/admin/dashboard"); }
   res.redirect("/admin?error=1");
 });
+
+function v4AdminPlugin(c) {
+  return `<style>
+/* ===== V4 ULTRA ADMIN STUDIO PLUGIN ===== */
+.v4badge{display:inline-flex;align-items:center;gap:7px;border:1px solid color-mix(in srgb,var(--a) 30%,transparent);border-radius:999px;padding:5px 10px;font-family:'Space Mono',monospace;font-size:10px;color:var(--a);background:rgba(255,255,255,.035)}
+.v4grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.v4grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.v4panel{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:18px;padding:14px;margin-bottom:12px}.v4panel h3{font-size:13px;margin:0 0 10px;color:var(--t)}.v4small{font-family:'Space Mono',monospace;color:var(--m);font-size:10px;line-height:1.55}.v4stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}.v4stat{border:1px solid rgba(255,255,255,.08);border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));padding:14px}.v4stat b{display:block;font-size:22px;color:var(--a)}.v4stat span{font-family:'Space Mono',monospace;color:var(--m);font-size:10px}.v4table{width:100%;border-collapse:collapse;font-family:'Space Mono',monospace;font-size:10px}.v4table td,.v4table th{border-bottom:1px solid rgba(255,255,255,.06);padding:8px;text-align:left;color:var(--m)}.v4table th{color:var(--a);text-transform:uppercase;letter-spacing:.08em}.v4pillrow{display:flex;gap:8px;flex-wrap:wrap}.v4ai{min-height:190px;background:#05070b;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px;font-family:'Space Mono',monospace;font-size:11px;color:#9ca3af;white-space:pre-wrap}.v4featureMatrix{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;max-height:360px;overflow:auto}.v4micro{display:flex;justify-content:space-between;gap:8px;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:9px;background:rgba(0,0,0,.16)}.v4micro span{font-family:'Space Mono',monospace;font-size:10px;color:var(--m)}
+@media(max-width:900px){.v4grid,.v4grid3,.v4stats{grid-template-columns:1fr}}
+</style>
+<script>
+(function(){
+const V4_CONFIG=${safeJson({
+  analytics_enabled: c.analytics_enabled !== false,
+  click_tracking: c.click_tracking !== false,
+  announcement_enabled: !!c.announcement_enabled,
+  announcement_text: c.announcement_text||"",
+  announcement_url: c.announcement_url||"",
+  enter_screen_enabled: !!c.enter_screen_enabled,
+  enter_screen_text: c.enter_screen_text||"click to enter",
+  share_bar_enabled: c.share_bar_enabled !== false,
+  copy_button_enabled: c.copy_button_enabled !== false,
+  theme_toggle_enabled: !!c.theme_toggle_enabled,
+  profile_title: c.profile_title||"",
+  hero_subtitle: c.hero_subtitle||"",
+  quote_enabled: !!c.quote_enabled,
+  quote_text: c.quote_text||"",
+  cta_enabled: !!c.cta_enabled,
+  cta_label: c.cta_label||"",
+  cta_url: c.cta_url||"",
+  stats_enabled: !!c.stats_enabled,
+  stats_items: c.stats_items||"",
+  gear_enabled: !!c.gear_enabled,
+  gear_items: c.gear_items||"",
+  timeline_enabled: !!c.timeline_enabled,
+  timeline_items: c.timeline_items||"",
+  availability_enabled: !!c.availability_enabled,
+  availability_text: c.availability_text||"",
+  footer_note: c.footer_note||"",
+  watermark_enabled: !!c.watermark_enabled,
+  disable_right_click: !!c.disable_right_click,
+  disable_selection: !!c.disable_selection,
+  analytics_public_badge: !!c.analytics_public_badge,
+  pwa_name: c.pwa_name||"Bio Page",
+  pwa_color: c.pwa_color||c.accent||"#c8ff00",
+  seo_keywords: c.seo_keywords||"",
+  canonical_url: c.canonical_url||""
+})};
+function h(s){return String(s||'').replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]||m})}
+function field(id,label,type,placeholder){
+  var v=V4_CONFIG[id];
+  if(type==='checkbox') return '<div class="tr"><div><div class="tl">'+label+'</div><div class="td">v4 ultra setting</div></div><label class="sw"><input type="checkbox" id="v4_'+id+'" '+(v?'checked':'')+'><span class="sl"></span></label></div>';
+  if(type==='textarea') return '<div class="fi"><label>'+label+'</label><textarea id="v4_'+id+'" rows="5" placeholder="'+h(placeholder||'')+'">'+h(v)+'</textarea></div>';
+  if(type==='color') return '<div class="fi"><label>'+label+'</label><div class="cf"><div class="cs"><input type="color" id="v4_'+id+'" value="'+h(v||'#c8ff00')+'"></div><input type="text" id="v4_'+id+'_text" value="'+h(v||'')+'" oninput="document.getElementById(\'v4_'+id+'\').value=this.value"></div></div>';
+  return '<div class="fi"><label>'+label+'</label><input type="'+(type||'text')+'" id="v4_'+id+'" value="'+h(v)+'" placeholder="'+h(placeholder||'')+'"></div>';
+}
+function collect(){var out={};Object.keys(V4_CONFIG).forEach(function(k){var el=document.getElementById('v4_'+k); if(!el)return; out[k]=el.type==='checkbox'?el.checked:el.value;});return out;}
+window.v4Collect=collect;
+var oldFetch=window.fetch.bind(window);
+window.fetch=function(input,init){try{var url=(typeof input==='string'?input:input.url)||''; if(url==='/admin/save'&&init&&init.body){var body=JSON.parse(init.body); Object.assign(body,collect()); init.body=JSON.stringify(body);}}catch(e){} return oldFetch(input,init)};
+function addNav(id,label){var target=document.querySelector('.sidebar .ndv')||document.querySelector('.sidebar'); if(!target)return; var btn=document.createElement('button');btn.className='ni';btn.setAttribute('data-section',id);btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16M12 4v16"/></svg>'+label;btn.onclick=function(){navTo(id);document.querySelectorAll('.ni').forEach(function(b){b.classList.remove('active')});btn.classList.add('active')}; target.parentNode.insertBefore(btn,target.nextSibling);}
+function addSection(id,title,html){var main=document.querySelector('.main');if(!main)return;var div=document.createElement('div');div.className='sec';div.id='sec-'+id;div.innerHTML='<p class="st" style="margin-top:0">'+title+' <span class="v4badge">v4 ultra</span></p>'+html;var saveBtn=main.querySelector('.sbtn');main.insertBefore(div,saveBtn||null);}
+function buildStudioHtml(){
+  return '<div class="v4grid"><div class="v4panel"><h3>Public Modules</h3>'+
+  field('announcement_enabled','Announcement Bar','checkbox')+field('announcement_text','Announcement Text','text','new drop / update / status')+field('announcement_url','Announcement Link','url','https://...')+field('enter_screen_enabled','Click-to-enter Screen','checkbox')+field('enter_screen_text','Enter Text','text','click to enter')+
+  '</div><div class="v4panel"><h3>Floating UI</h3>'+field('share_bar_enabled','Share Button','checkbox')+field('copy_button_enabled','Copy Link Button','checkbox')+field('theme_toggle_enabled','Light/Dark Toggle','checkbox')+field('watermark_enabled','Tiny Watermark','checkbox')+field('analytics_public_badge','Public View Counter Pill','checkbox')+'</div></div>'+
+  '<div class="v4grid"><div class="v4panel"><h3>Profile Content Blocks</h3>'+field('profile_title','Mini Section Title','text','about me')+field('hero_subtitle','Mini Section Text','textarea','kurzer extra text')+field('quote_enabled','Quote Block','checkbox')+field('quote_text','Quote Text','text','...')+field('availability_enabled','Availability Block','checkbox')+field('availability_text','Availability Text','text','open for duos / dms / collabs')+'</div><div class="v4panel"><h3>CTA / Footer</h3>'+field('cta_enabled','Call-to-action Button','checkbox')+field('cta_label','CTA Label','text','join discord')+field('cta_url','CTA URL','url','https://...')+field('footer_note','Footer Note','text','small footer text')+'</div></div>'+
+  '<div class="v4grid"><div class="v4panel"><h3>Stats / Setup</h3>'+field('stats_enabled','Stats Block','checkbox')+field('stats_items','Stats Lines','textarea','Rank: Diamond\\nSens: 6.9\\nRegion: EU')+'</div><div class="v4panel"><h3>Gear / Timeline</h3>'+field('gear_enabled','Gear Block','checkbox')+field('gear_items','Gear Lines','textarea','Mouse: ...\\nKeyboard: ...')+field('timeline_enabled','Timeline Block','checkbox')+field('timeline_items','Timeline Lines','textarea','2024 started\\n2025 upgraded')+'</div></div>'+
+  '<div class="v4panel"><h3>Privacy / SEO / PWA</h3><div class="v4grid3">'+field('disable_right_click','Disable Right Click','checkbox')+field('disable_selection','Disable Text Selection','checkbox')+field('click_tracking','Click Tracking','checkbox')+field('analytics_enabled','Analytics Enabled','checkbox')+field('pwa_name','PWA Name','text','Bio Page')+field('pwa_color','PWA Color','color')+field('seo_keywords','SEO Keywords','text','bio, links, ...')+field('canonical_url','Canonical URL','url','https://domain.de')+'</div></div>';
+}
+function build(){
+  addNav('v4studio','V4 Studio'); addNav('analytics','Analytics'); addNav('automation','Automation'); addNav('sharekit','Share Kit');
+  addSection('v4studio','V4 Studio', buildStudioHtml());
+  addSection('analytics','Analytics', '<div class="v4stats"><div class="v4stat"><b id="v4views">-</b><span>Views 7 Tage</span></div><div class="v4stat"><b id="v4clicks">-</b><span>Klicks 7 Tage</span></div><div class="v4stat"><b id="v4ctr">-</b><span>CTR</span></div><div class="v4stat"><b id="v4links">-</b><span>Top Links</span></div></div><div class="v4panel"><h3>Top Links</h3><table class="v4table"><thead><tr><th>Link</th><th>Klicks</th></tr></thead><tbody id="v4TopLinks"><tr><td colspan="2">lade...</td></tr></tbody></table></div><div class="v4panel"><h3>Letzte Events</h3><table class="v4table"><thead><tr><th>Zeit</th><th>Typ</th><th>Info</th></tr></thead><tbody id="v4Events"><tr><td colspan="3">lade...</td></tr></tbody></table></div><div class="feature-actions"><button class="bab" onclick="v4LoadAnalytics()">Refresh Analytics</button><button class="bab mini-danger" onclick="v4ResetAnalytics()">Analytics löschen</button></div>');
+  addSection('automation','Automation Lab', '<div class="v4grid"><div class="v4panel"><h3>One-click Presets</h3><div class="v4pillrow"><button class="bab" onclick="v4Preset(\'dating\')">Dating Bio</button><button class="bab" onclick="v4Preset(\'gamer\')">Gamer Bio</button><button class="bab" onclick="v4Preset(\'vip\')">VIP Look</button><button class="bab" onclick="v4Preset(\'minimal\')">Minimal Flex</button></div><p class="v4small">Presets setzen sinnvolle Module, Texte und Feature-Kombis. Danach normal speichern.</p></div><div class="v4panel"><h3>Bio Ideas Generator</h3><div class="v4ai" id="v4IdeaBox">Klick auf generieren und du bekommst sofort Bio-Ideen basierend auf deinem aktuellen Style.</div><button class="bab" onclick="v4GenerateIdeas()">Ideen generieren</button></div></div><div class="v4panel"><h3>Quality Checklist</h3><div id="v4Checklist" class="v4featureMatrix"></div></div>');
+  addSection('sharekit','Share Kit', '<div class="v4grid"><div class="v4panel"><h3>Public Endpoints</h3><p class="v4small">/manifest.webmanifest · /robots.txt · /sitemap.xml · /share-card.svg · /theme.json · /healthz</p><div class="v4pillrow"><a class="bab" href="/share-card.svg" target="_blank">Share Card</a><a class="bab" href="/manifest.webmanifest" target="_blank">Manifest</a><a class="bab" href="/theme.json" target="_blank">Theme JSON</a></div></div><div class="v4panel"><h3>Backups</h3><div class="v4pillrow"><button class="bab" onclick="v4MakeSnapshot()">Snapshot erstellen</button><button class="bab" onclick="v4ListSnapshots()">Snapshots laden</button><button class="bab" onclick="exportDraftConfig()">Draft export</button></div><div id="v4Snapshots" class="v4small" style="margin-top:10px"></div></div></div>');
+  setTimeout(function(){v4LoadAnalytics();v4BuildChecklist();},250);
+}
+window.v4LoadAnalytics=function(){fetch('/admin/api/analytics').then(r=>r.json()).then(function(d){document.getElementById('v4views').textContent=d.views_7d||0;document.getElementById('v4clicks').textContent=d.clicks_7d||0;document.getElementById('v4ctr').textContent=(d.ctr||0)+'%';document.getElementById('v4links').textContent=(d.top_links||[]).length;document.getElementById('v4TopLinks').innerHTML=(d.top_links||[]).map(function(x){return '<tr><td>'+h(x.label||x.platform||'link')+'</td><td>'+x.clicks+'</td></tr>';}).join('')||'<tr><td colspan="2">noch keine Klicks</td></tr>';document.getElementById('v4Events').innerHTML=(d.events||[]).map(function(x){return '<tr><td>'+h(x.created_at||'')+'</td><td>'+h(x.type||'')+'</td><td>'+h(x.link_label||x.path||'')+'</td></tr>';}).join('')||'<tr><td colspan="3">noch keine Events</td></tr>';}).catch(function(e){console.warn(e);});}
+window.v4ResetAnalytics=function(){if(!confirm('Analytics wirklich löschen?'))return;fetch('/admin/api/reset-analytics',{method:'POST'}).then(function(){v4LoadAnalytics();});}
+window.v4MakeSnapshot=function(){fetch('/admin/api/snapshot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label:'manual '+new Date().toLocaleString()})}).then(function(r){return r.json();}).then(function(){v4ListSnapshots();});}
+window.v4ListSnapshots=function(){fetch('/admin/api/snapshots').then(function(r){return r.json();}).then(function(d){document.getElementById('v4Snapshots').innerHTML=(d.snapshots||[]).map(function(s){return '#'+s.id+' · '+h(s.label||'snapshot')+' · '+h(s.created_at);}).join('<br>')||'keine snapshots';});}
+window.v4Preset=function(name){if(name==='gamer'){document.getElementById('v4_stats_enabled').checked=true;document.getElementById('v4_stats_items').value='Rank: Diamond\nGame: Fortnite / Valorant\nRegion: EU';document.getElementById('v4_gear_enabled').checked=true;} if(name==='dating'){document.getElementById('v4_quote_enabled').checked=true;document.getElementById('v4_quote_text').value='series, late night talks and gaming';} if(name==='vip'){document.getElementById('v4_announcement_enabled').checked=true;document.getElementById('v4_announcement_text').value='premium profile enabled';} if(name==='minimal'){document.getElementById('v4_footer_note').value='less noise more aura';} markDirty();}
+window.v4GenerateIdeas=function(){var u=(document.getElementById('username')||{}).value||'username';var ideas=['@'+u+' · lowkey but not offline','series at night gaming till sunrise','not hard to find just hard to forget','vip energy private life public links','eu gamer · clean aim · colder profile'];document.getElementById('v4IdeaBox').textContent=ideas.map(function(x,i){return (i+1)+'. '+x;}).join('\n');}
+window.v4BuildChecklist=function(){var items=[['Avatar gesetzt',!!(document.getElementById('avatar_url')&&document.getElementById('avatar_url').value)||!!(document.getElementById('avatar_emoji')&&document.getElementById('avatar_emoji').value)],['Bio nicht leer',!!(document.getElementById('bio')&&document.getElementById('bio').value.trim())],['Mindestens 2 Links',Array.isArray(window.links)&&window.links.length>=2],['Meta Title',!!(document.getElementById('meta_title')&&document.getElementById('meta_title').value)],['Accent gewählt',!!(document.getElementById('accent')&&document.getElementById('accent').value)],['Click Tracking aktiv',!!(document.getElementById('v4_click_tracking')&&document.getElementById('v4_click_tracking').checked)],['Share Buttons aktiv',!!(document.getElementById('v4_share_bar_enabled')&&document.getElementById('v4_share_bar_enabled').checked)],['Mobile safe',true],['Backup möglich',true],['Favicon möglich',true]];var el=document.getElementById('v4Checklist');if(el)el.innerHTML=items.map(function(x){return '<div class="v4micro"><span>'+h(x[0])+'</span><b style="color:'+(x[1]?'#22c55e':'#ef4444')+'">'+(x[1]?'ok':'fix')+'</b></div>';}).join('');}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',build);else build();
+})();
+<\/script>`;
+}
+
+
+/* ===== V5 EXTREME ADMIN PLUGIN: Theme Forge, Component Builder, real controls ===== */
+function v5AdminPlugin(c) {
+  const cfg = {
+    v5_enabled: v5Bool(c.v5_enabled), v5_nav_enabled: c.v5_nav_enabled !== false,
+    v5_aura_enabled: v5Bool(c.v5_aura_enabled), v5_aura_title: c.v5_aura_title || "Aura Level", v5_aura_score: c.v5_aura_score || 78, v5_aura_text: c.v5_aura_text || "premium profile energy",
+    v5_tags_title: c.v5_tags_title || "tags", v5_tags: c.v5_tags || "fortnite\nvalorant\nnight talks\nseries\nlowkey",
+    v5_highlights_title: c.v5_highlights_title || "highlights", v5_highlights: c.v5_highlights || "Rank|Diamond+\nRegion|EU\nMode|Competitive\nEnergy|Private but premium",
+    v5_services_title: c.v5_services_title || "services", v5_services: c.v5_services || "Duo Queue|ask|fortnite / valo\nCoaching|soon|mechanics and mindset\nCustom Profile|dm|clean bio design",
+    v5_gallery_title: c.v5_gallery_title || "gallery", v5_gallery: c.v5_gallery || "",
+    v5_feed_title: c.v5_feed_title || "feed", v5_feed: c.v5_feed || "currently|building the cleanest profile|now\ngrinding|aim and mechanics|daily",
+    v5_faq_title: c.v5_faq_title || "faq", v5_faq: c.v5_faq || "who are you?|just someone with taste\ncan i dm?|yes if it is not weird",
+    v5_countdown_enabled: v5Bool(c.v5_countdown_enabled), v5_countdown_title: c.v5_countdown_title || "countdown", v5_countdown_date: c.v5_countdown_date || "",
+    v5_playlist_title: c.v5_playlist_title || "playlist", v5_playlist: c.v5_playlist || "",
+    v5_terminal_enabled: v5Bool(c.v5_terminal_enabled), v5_terminal_text: c.v5_terminal_text || "> booting profile...\n> status: online\n> aura: locked in",
+    v5_secret_enabled: v5Bool(c.v5_secret_enabled), v5_secret_code: c.v5_secret_code || "open", v5_secret_title: c.v5_secret_title || "secret", v5_secret_text: c.v5_secret_text || "hidden section unlocked",
+    v5_reactions_enabled: v5Bool(c.v5_reactions_enabled), v5_reactions_title: c.v5_reactions_title || "react", v5_reactions: c.v5_reactions || "🔥\n🖤\n💎\n👀",
+    v5_marquee_text: c.v5_marquee_text || "",
+    v5_fx: Object.assign({floating_orb:true,mouse_spotlight:true,soft_grain:true,premium_aura:true,link_magnet:true,badge_rainbow:false,tilt_avatar:true,audio_glass:true}, c.v5_fx || {})
+  };
+  return `
+<style>
+.v5-admin-shell{display:grid;gap:16px}.v5-hero{position:relative;overflow:hidden;border:1px solid color-mix(in srgb,var(--a) 24%,transparent);border-radius:24px;padding:20px;background:radial-gradient(circle at top left,color-mix(in srgb,var(--a) 18%,transparent),transparent 38%),linear-gradient(135deg,#101014,#070708);box-shadow:0 30px 120px rgba(0,0,0,.35)}.v5-hero:after{content:'';position:absolute;inset:-80px -120px auto auto;width:260px;height:260px;border-radius:50%;background:var(--a);opacity:.12;filter:blur(28px)}.v5-hero h2{font-size:1.35rem;margin-bottom:6px}.v5-hero p{font-family:'Space Mono',monospace;color:var(--m);font-size:11px}.v5-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.v5-admin-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.v5-admin-panel{border:1px solid var(--b);border-radius:20px;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.015));padding:16px}.v5-admin-panel h3{font-size:.95rem;margin-bottom:10px}.v5-admin-panel textarea{min-height:112px}.v5-small{font-family:'Space Mono',monospace;font-size:10px;color:var(--m);line-height:1.5}.v5-switch-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.v5-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid var(--b2);border-radius:14px;padding:10px;background:var(--bg)}.v5-toggle span{font-family:'Space Mono',monospace;font-size:10px;color:var(--t)}.v5-matrix{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.v5-preset{border:1px solid var(--b2);border-radius:16px;padding:12px;background:var(--bg);cursor:pointer}.v5-preset b{display:block;font-size:12px}.v5-preset span{font-family:'Space Mono',monospace;font-size:10px;color:var(--m)}.v5-preset:hover{border-color:var(--a);transform:translateY(-1px)}.v5-score{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.v5-score div{border:1px solid var(--b2);border-radius:16px;padding:12px;background:var(--bg)}.v5-score b{font-size:20px;color:var(--a)}.v5-score span{display:block;font-family:'Space Mono',monospace;font-size:9px;color:var(--m);text-transform:uppercase}.v5-plugin-list{display:grid;gap:8px}.v5-plugin{border:1px solid var(--b2);border-radius:14px;padding:10px;background:var(--bg);display:flex;align-items:center;justify-content:space-between;gap:10px}.v5-plugin code{font-size:10px;color:var(--a)}@media(max-width:980px){.v5-admin-grid,.v5-matrix{grid-template-columns:1fr}.v5-score{grid-template-columns:repeat(2,1fr)}}
+</style>
+<script>
+(function(){
+const V5_CFG=${safeJson(cfg)};
+function h(v){return String(v==null?'':v).replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]})}
+function field(id,label,type,help){var v=V5_CFG[id]; if(type==='check')return '<div class="tr"><div><div class="tl">'+h(label)+'</div><div class="td">'+h(help||'')+'</div></div><label class="sw"><input id="v5_'+id+'" type="checkbox" '+(v?'checked':'')+'><span class="sl"></span></label></div>'; if(type==='area')return '<div class="fi"><label>'+h(label)+'</label><textarea id="v5_'+id+'">'+h(v||'')+'</textarea><div class="v5-small">'+h(help||'')+'</div></div>'; if(type==='number')return '<div class="fi"><label>'+h(label)+'</label><input id="v5_'+id+'" type="text" inputmode="numeric" value="'+h(v||'')+'"><div class="v5-small">'+h(help||'')+'</div></div>'; return '<div class="fi"><label>'+h(label)+'</label><input id="v5_'+id+'" type="text" value="'+h(v||'')+'"><div class="v5-small">'+h(help||'')+'</div></div>';}
+function fxToggle(key,label){return '<label class="v5-toggle"><span>'+h(label)+'</span><label class="sw"><input type="checkbox" data-v5fx="'+h(key)+'" '+(V5_CFG.v5_fx&&V5_CFG.v5_fx[key]?'checked':'')+'><span class="sl"></span></label></label>';}
+function panel(title,body){return '<div class="v5-admin-panel"><h3>'+h(title)+'</h3>'+body+'</div>';}
+function addNav(id,label){var side=document.querySelector('.sidebar .sf')||document.querySelector('.sidebar');if(!side||document.querySelector('[data-section="'+id+'"]'))return;var b=document.createElement('button');b.type='button';b.className='ni';b.dataset.section=id;b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.8 6 6.2.8-4.5 4.3 1.1 6.1L12 16.1 6.4 19.2l1.1-6.1L3 8.8 9.2 8z"/></svg><span>'+label+'</span>';side.parentNode.insertBefore(b,side);b.addEventListener('click',function(){navTo(id);document.querySelectorAll('.ni').forEach(x=>x.classList.remove('active'));b.classList.add('active')});}
+function addSection(id,html){var main=document.querySelector('.main form')||document.querySelector('.main');if(!main||document.getElementById('sec-'+id))return;var sec=document.createElement('section');sec.className='sec';sec.id='sec-'+id;sec.innerHTML=html;main.insertBefore(sec,main.querySelector('.sbtn')||null);}
+function buildLab(){return '<div class="v5-admin-shell"><div class="v5-hero"><h2>V5 Extreme Experience</h2><p>Component engine, command menu, micro sections, reactions, secret unlocks, aura modules and cinematic profile effects.</p><div class="v5-actions"><button type="button" class="bab" onclick="v5PresetUltra()">Ultra Preset</button><button type="button" class="bab" onclick="v5PresetDating()">Dating Preset</button><button type="button" class="bab" onclick="v5PresetCreator()">Creator Preset</button><button type="button" class="bab" onclick="v5RunAudit()">Audit</button></div></div><div class="v5-score" id="v5Score"><div><b>--</b><span>score</span></div><div><b>--</b><span>modules</span></div><div><b>--</b><span>links</span></div><div><b>--</b><span>badges</span></div></div><div class="v5-admin-grid">'+panel('Core',field('v5_enabled','V5 Public Suite','check','aktiviert alle neuen public module')+field('v5_nav_enabled','Bottom Nav + CMD','check','dock unten')+field('v5_marquee_text','Top Marquee'))+panel('Aura / Tags',field('v5_aura_enabled','Aura Meter','check','visueller energy balken')+field('v5_aura_title','Aura Titel')+field('v5_aura_score','Aura Score','number','0-100')+field('v5_aura_text','Aura Text')+field('v5_tags_title','Tags Titel')+field('v5_tags','Tags','area','eine Zeile pro Tag'))+panel('Highlights / Services',field('v5_highlights_title','Highlights Titel')+field('v5_highlights','Highlights','area','Titel|Wert')+field('v5_services_title','Services Titel')+field('v5_services','Services','area','Name|Preis|Beschreibung'))+panel('Gallery / Feed',field('v5_gallery_title','Gallery Titel')+field('v5_gallery','Gallery','area','Label|BildURL|LinkURL')+field('v5_feed_title','Feed Titel')+field('v5_feed','Feed','area','Titel|Text|Datum'))+panel('FAQ / Countdown',field('v5_faq_title','FAQ Titel')+field('v5_faq','FAQ','area','Frage|Antwort')+field('v5_countdown_enabled','Countdown','check','Event Timer')+field('v5_countdown_title','Countdown Titel')+field('v5_countdown_date','Datum','text','YYYY-MM-DDTHH:MM:SS'))+panel('Playlist / Terminal',field('v5_playlist_title','Playlist Titel')+field('v5_playlist','Songs','area','Song|Artist|URL')+field('v5_terminal_enabled','Terminal','check','fake terminal')+field('v5_terminal_text','Terminal Text','area','mehrzeilig'))+panel('Secret / Reactions',field('v5_secret_enabled','Secret Section','check','per code freischaltbar')+field('v5_secret_code','Secret Code')+field('v5_secret_title','Secret Titel')+field('v5_secret_text','Secret Text','area')+field('v5_reactions_enabled','Reactions','check','Besucher können reagieren')+field('v5_reactions_title','Reaction Titel')+field('v5_reactions','Reaction Buttons','area','eine Zeile pro Emoji/Text'))+panel('Cinematic FX','<div class="v5-switch-grid">'+fxToggle('floating_orb','Floating Aura Orb')+fxToggle('mouse_spotlight','Mouse Spotlight')+fxToggle('soft_grain','Soft Film Grain')+fxToggle('premium_aura','Premium Aura Shadow')+fxToggle('link_magnet','Magnetic Links')+fxToggle('badge_rainbow','Rainbow Badges')+fxToggle('tilt_avatar','Avatar Tilt')+fxToggle('audio_glass','Glass Audio Widget')+'</div>')+'</div></div>';}
+function buildForge(){return '<div class="v5-admin-grid">'+panel('One Click Theme Forge','<div class="v5-matrix"><div class="v5-preset" onclick="v5Theme(\'obsidian\')"><b>Obsidian</b><span>black luxury</span></div><div class="v5-preset" onclick="v5Theme(\'angel\')"><b>Angel</b><span>white clean</span></div><div class="v5-preset" onclick="v5Theme(\'blood\')"><b>Blood</b><span>vampire red</span></div><div class="v5-preset" onclick="v5Theme(\'ice\')"><b>Ice</b><span>blue glass</span></div><div class="v5-preset" onclick="v5Theme(\'toxic\')"><b>Toxic</b><span>green venom</span></div><div class="v5-preset" onclick="v5Theme(\'egirl\')"><b>Egirl</b><span>pink anime vibe</span></div></div>')+panel('Micro Pages','<div class="v5-plugin-list"><div class="v5-plugin"><span>Public JSON</span><code>/api/v5-profile</code></div><div class="v5-plugin"><span>Embed Card</span><code>/embed/card</code></div><div class="v5-plugin"><span>Identity SVG</span><code>/identity-card.svg</code></div><div class="v5-plugin"><span>Badge SVG</span><code>/badge.svg?text=VIP</code></div></div>')+panel('Automation','<button type="button" class="bab" onclick="v5AutoBio()">Bio füllen</button><button type="button" class="bab" onclick="v5AutoBadges()">Premium Badges</button><button type="button" class="bab" onclick="v5ListRestore()">Snapshots Restore</button><div id="v5RestoreList" class="v5-small" style="margin-top:10px"></div>')+'</div>';}
+function collect(){var out={};Object.keys(V5_CFG).forEach(function(k){if(k==='v5_fx')return;var el=document.getElementById('v5_'+k);if(!el)return;out[k]=el.type==='checkbox'?el.checked:el.value});out.v5_fx={};document.querySelectorAll('[data-v5fx]').forEach(function(el){out.v5_fx[el.dataset.v5fx]=el.checked});return out;}
+function mark(){try{markDirty()}catch(e){}}
+function build(){addNav('v5lab','V5 Lab');addNav('v5forge','Theme Forge');addSection('v5lab',buildLab());addSection('v5forge',buildForge());document.querySelectorAll('#sec-v5lab input,#sec-v5lab textarea,#sec-v5forge input,#sec-v5forge textarea').forEach(function(el){el.addEventListener('input',mark);el.addEventListener('change',mark)});v5RunAudit();}
+var oldFetch=window.fetch;window.fetch=function(input,init){try{var url=(typeof input==='string'?input:input.url)||'';if(url==='/admin/save'&&init&&init.body){var body=JSON.parse(init.body);Object.assign(body,collect());init.body=JSON.stringify(body)}}catch(e){}return oldFetch(input,init)};
+window.v5RunAudit=function(){fetch('/admin/api/v5-audit').then(r=>r.json()).then(function(d){var el=document.getElementById('v5Score');if(el)el.innerHTML='<div><b>'+d.score+'</b><span>score</span></div><div><b>'+d.modules+'</b><span>modules</span></div><div><b>'+d.links+'</b><span>links</span></div><div><b>'+d.badges+'</b><span>badges</span></div>'}).catch(function(){})}
+window.v5PresetUltra=function(){document.getElementById('v5_v5_enabled').checked=true;document.getElementById('v5_v5_aura_enabled').checked=true;document.getElementById('v5_v5_reactions_enabled').checked=true;document.getElementById('v5_v5_terminal_enabled').checked=true;document.getElementById('v5_v5_tags').value='premium\nrare\nnight mode\ncompetitive\nprivate';document.querySelectorAll('[data-v5fx]').forEach(x=>x.checked=true);mark()}
+window.v5PresetDating=function(){document.getElementById('v5_v5_enabled').checked=true;document.getElementById('v5_v5_tags').value='vampire diaries\ngaming\nlate night talks\nloyal\nseries';document.getElementById('v5_v5_faq').value='what do you like?|series gaming and calm energy\ncan i text you?|yes if you are normal';document.getElementById('v5_v5_aura_text').value='soft but hard to forget';mark()}
+window.v5PresetCreator=function(){document.getElementById('v5_v5_enabled').checked=true;document.getElementById('v5_v5_services').value='Custom Profile|dm|clean bio page setup\nGaming Duo|ask|fortnite valo minecraft\nEditing|soon|clips and visuals';document.getElementById('v5_v5_highlights').value='Projects|bio page\nFocus|design and gaming\nStatus|available';mark()}
+window.v5Theme=function(name){var m={obsidian:['#ffffff','#000000','#f8fafc','Inter'],angel:['#6366f1','#fafafa','#111827','DM Sans'],blood:['#ff003c','#090006','#ffe4ec','Playfair Display'],ice:['#67e8f9','#06111f','#ecfeff','Outfit'],toxic:['#a3ff12','#020403','#f7ffe8','Rajdhani'],egirl:['#ff71ce','#12002a','#fff0ff','Quicksand']}[name];if(!m)return;['accent','bg_color','text_color','font'].forEach(function(id,i){var el=document.getElementById(id);if(el)el.value=m[i]});var ah=document.getElementById('accent_h');if(ah)ah.value=m[0];document.documentElement.style.setProperty('--a',m[0]);mark()}
+window.v5AutoBio=function(){var bio=document.getElementById('bio');if(bio)bio.value='lowkey profile\ncompetitive energy\nprivate life public links';mark()}
+window.v5AutoBadges=function(){try{badges=[{text:'Premium',icon:'✦',color:'#fbbf24',style:'neon'},{text:'VIP',icon:'◆',color:'#c8ff00',style:'solid'},{text:'EU',icon:'🌙',color:'#67e8f9',style:'glass'}];renderB();mark()}catch(e){}}
+window.v5ListRestore=function(){fetch('/admin/api/snapshots').then(r=>r.json()).then(function(d){var el=document.getElementById('v5RestoreList');el.innerHTML=(d.snapshots||[]).map(function(s){return '<div class="v5-plugin"><span>#'+s.id+' · '+h(s.label)+' · '+h(s.created_at)+'</span><button type="button" class="bab" onclick="v5Restore('+s.id+')">restore</button></div>'}).join('')||'keine snapshots'})}
+window.v5Restore=function(id){if(!confirm('Snapshot #'+id+' wirklich wiederherstellen?'))return;fetch('/admin/api/restore-snapshot/'+id,{method:'POST'}).then(r=>r.json()).then(function(d){if(d.ok){alert('restore ok');location.reload()}else alert(d.error||'restore error')})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',build);else build();
+})();
+</script>`;
+}
 
 app.get("/admin/dashboard", requireAuth, async (req, res) => {
   const c = await getConfig();
@@ -1278,7 +1560,7 @@ document.addEventListener("DOMContentLoaded",function(){
   try{renderFeatures();}catch(e){console.error(e);}
   try{bindAdminStudio();}catch(e){console.error(e);}
 });
-</script>
+</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}
 </body></html>`);
 });
 
@@ -1288,6 +1570,100 @@ app.post("/admin/save", requireAuth, async (req, res) => {
   const updated = { ...current, ...fields, password: newPassword ? await bcrypt.hash(newPassword, 10) : current.password };
   await saveConfig(updated);
   res.json({ ok: true });
+});
+
+app.get("/go/:idx", async (req, res) => {
+  const c = await getConfig();
+  const idx = Number(req.params.idx);
+  const link = Array.isArray(c.links) ? c.links[idx] : null;
+  const url = link ? getLinkUrl(link) : null;
+  if (!url) return res.redirect("/");
+  const p = PLATFORMS[link.platform] || PLATFORMS.link;
+  trackEvent(req, "click", { config: c, link_index: idx, link_platform: link.platform || "link", link_label: link.username || p.name }).catch(()=>{});
+  res.redirect(url);
+});
+
+app.get("/healthz", (req, res) => res.json({ ok: true, service: "bio", time: new Date().toISOString() }));
+app.get("/robots.txt", async (req, res) => {
+  const base = publicUrl(req);
+  res.type("text/plain").send(`User-agent: *\nAllow: /\nSitemap: ${base}/sitemap.xml\n`);
+});
+app.get("/sitemap.xml", async (req, res) => {
+  const base = publicUrl(req);
+  res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${base}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url></urlset>`);
+});
+app.get("/manifest.webmanifest", async (req, res) => {
+  const c = await getConfig();
+  res.type("application/manifest+json").send({
+    name: c.pwa_name || c.meta_title || c.username || "Bio Page",
+    short_name: c.username || "bio",
+    start_url: "/",
+    display: "standalone",
+    background_color: c.bg_color || "#080808",
+    theme_color: c.pwa_color || c.accent || "#c8ff00",
+    icons: c.favicon_url || c.avatar_url ? [{ src: c.favicon_url || c.avatar_url, sizes: "512x512", type: "image/png" }] : []
+  });
+});
+app.get("/theme.json", async (req, res) => {
+  const c = await getConfig();
+  res.json({ username: c.username, accent: c.accent, font: c.font, features: Object.keys(c.feature_flags || {}).filter(k => c.feature_flags[k]) });
+});
+app.get("/share-card.svg", async (req, res) => {
+  const c = await getConfig();
+  const title = esc(c.meta_title || c.username || "bio");
+  const desc = esc(c.meta_description || String(c.bio || "").split("\n")[0] || "");
+  const a = safeColor(c.accent, "#c8ff00") || "#c8ff00";
+  const bgc = safeColor(c.bg_color, "#080808") || "#080808";
+  res.type("image/svg+xml").send(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${bgc}"/><stop offset="1" stop-color="#111827"/></linearGradient></defs><rect width="1200" height="630" fill="url(#g)"/><circle cx="970" cy="100" r="220" fill="${a}" opacity=".18"/><circle cx="160" cy="540" r="260" fill="${a}" opacity=".12"/><rect x="90" y="95" width="1020" height="440" rx="42" fill="rgba(255,255,255,.06)" stroke="${a}" stroke-opacity=".45"/><text x="140" y="255" fill="${a}" font-size="30" font-family="monospace">bio profile</text><text x="140" y="335" fill="#fff" font-size="78" font-family="Arial, sans-serif" font-weight="800">${title}</text><text x="140" y="410" fill="#cbd5e1" font-size="30" font-family="Arial, sans-serif">${desc}</text></svg>`);
+});
+
+app.get("/admin/api/analytics", requireAuth, async (req, res) => {
+  try {
+    const views = await pool.query("SELECT count(*)::int n FROM bio_events WHERE type='view' AND created_at > now() - interval '7 days'");
+    const clicks = await pool.query("SELECT count(*)::int n FROM bio_events WHERE type='click' AND created_at > now() - interval '7 days'");
+    const top = await pool.query("SELECT coalesce(link_label, link_platform, 'link') label, coalesce(link_platform,'link') platform, count(*)::int clicks FROM bio_events WHERE type='click' AND created_at > now() - interval '30 days' GROUP BY 1,2 ORDER BY clicks DESC LIMIT 10");
+    const events = await pool.query("SELECT type,path,link_label,to_char(created_at,'YYYY-MM-DD HH24:MI') created_at FROM bio_events ORDER BY id DESC LIMIT 20");
+    const v = views.rows[0]?.n || 0, cl = clicks.rows[0]?.n || 0;
+    res.json({ ok:true, views_7d:v, clicks_7d:cl, ctr:v ? Math.round((cl/v)*1000)/10 : 0, top_links:top.rows, events:events.rows });
+  } catch(e) { res.status(500).json({ ok:false, error:e.message }); }
+});
+app.post("/admin/api/reset-analytics", requireAuth, async (req, res) => { await pool.query("DELETE FROM bio_events"); res.json({ ok:true }); });
+app.post("/admin/api/snapshot", requireAuth, async (req, res) => { const c = await getConfig(); await pool.query("INSERT INTO bio_snapshots(label,data) VALUES($1,$2)", [String(req.body?.label || "manual snapshot").slice(0,80), c]); res.json({ ok:true }); });
+app.get("/admin/api/snapshots", requireAuth, async (req, res) => { const { rows } = await pool.query("SELECT id,label,to_char(created_at,'YYYY-MM-DD HH24:MI') created_at FROM bio_snapshots ORDER BY id DESC LIMIT 20"); res.json({ ok:true, snapshots:rows }); });
+app.get("/admin/api/export", requireAuth, async (req, res) => { const c = await getConfig(); res.setHeader("Content-Disposition", "attachment; filename=bio-config-export.json"); res.json(c); });
+
+
+/* ===== V5 EXTREME ROUTES ===== */
+app.post("/api/reaction", async (req, res) => {
+  try { await trackEvent(req, "reaction", { link_label: String(req.body?.reaction || "reaction").slice(0, 80) }); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ ok:false, error:e.message }); }
+});
+app.get("/api/v5-profile", async (req, res) => {
+  const c = await getConfig();
+  res.json({ username: c.username, bio: c.bio, accent: c.accent, status: c.status, tags: cleanLines(c.v5_tags, 50), highlights: v5Rows(c.v5_highlights, 30, ["title","value","extra"]), links: (c.links || []).map((l, i) => ({ index:i, platform:l.platform, label:l.username || (PLATFORMS[l.platform]||PLATFORMS.link).name, url:getLinkUrl(l) })) });
+});
+app.get("/embed/card", async (req, res) => {
+  const c = await getConfig(); const base = publicUrl(req);
+  res.type("html").send(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:transparent;font-family:Inter,Arial}.card{width:360px;max-width:100%;border-radius:24px;padding:24px;background:${esc(c.bg_color||"#080808")};color:${esc(c.text_color||"#fff")};border:1px solid ${esc(c.accent||"#c8ff00")};box-shadow:0 24px 90px rgba(0,0,0,.35)}h1{margin:0 0 8px;font-size:28px}p{opacity:.72;line-height:1.5}.a{color:${esc(c.accent||"#c8ff00")}}</style></head><body><a href="${base}/" target="_blank" style="text-decoration:none"><div class="card"><h1>@<span class="a">${esc(c.username||"username")}</span></h1><p>${esc(String(c.bio||"").split("\n")[0]||"")}</p></div></a></body></html>`);
+});
+app.get("/identity-card.svg", async (req, res) => {
+  const c = await getConfig(); const a = safeColor(c.accent, "#c8ff00") || "#c8ff00"; const bg = safeColor(c.bg_color, "#080808") || "#080808"; const name = esc(c.username || "username"); const bio = esc(String(c.bio||"").split("\n")[0] || "profile");
+  res.type("image/svg+xml").send(`<svg xmlns="http://www.w3.org/2000/svg" width="900" height="500"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${bg}"/><stop offset="1" stop-color="#111827"/></linearGradient></defs><rect width="900" height="500" rx="36" fill="url(#g)"/><circle cx="760" cy="90" r="170" fill="${a}" opacity=".18"/><rect x="54" y="54" width="792" height="392" rx="32" fill="rgba(255,255,255,.055)" stroke="${a}" stroke-opacity=".5"/><text x="92" y="150" fill="${a}" font-family="monospace" font-size="24">V5 IDENTITY CARD</text><text x="92" y="240" fill="#fff" font-family="Arial" font-weight="800" font-size="68">@${name}</text><text x="92" y="300" fill="#cbd5e1" font-family="Arial" font-size="26">${bio}</text><text x="92" y="385" fill="${a}" font-family="monospace" font-size="18">verified profile aesthetic</text></svg>`);
+});
+app.get("/badge.svg", async (req, res) => {
+  const text = esc(String(req.query.text || "VIP").slice(0, 24)); const color = safeColor(req.query.color, "#c8ff00") || "#c8ff00";
+  res.type("image/svg+xml").send(`<svg xmlns="http://www.w3.org/2000/svg" width="260" height="80"><rect x="4" y="4" width="252" height="72" rx="36" fill="rgba(0,0,0,.9)" stroke="${color}"/><circle cx="42" cy="40" r="12" fill="${color}"/><text x="68" y="49" fill="${color}" font-family="monospace" font-size="24" font-weight="700">${text}</text></svg>`);
+});
+app.get("/admin/api/v5-audit", requireAuth, async (req, res) => {
+  const c = await getConfig();
+  const modules = [c.v5_enabled,c.v5_aura_enabled,c.v5_reactions_enabled,c.v5_terminal_enabled,c.v5_secret_enabled,c.v5_countdown_enabled,c.v5_nav_enabled,c.announcement_enabled,c.share_bar_enabled,c.click_tracking].filter(v5Bool).length;
+  const links = Array.isArray(c.links) ? c.links.length : 0; const badges = normalizeBadges(c.badges).length;
+  const score = Math.min(100, 20 + modules*7 + Math.min(links,6)*4 + Math.min(badges,8)*3 + (c.avatar_url?8:0) + (c.meta_title?5:0));
+  res.json({ ok:true, score, modules, links, badges });
+});
+app.post("/admin/api/restore-snapshot/:id", requireAuth, async (req, res) => {
+  try { const id = Number(req.params.id); const { rows } = await pool.query("SELECT data FROM bio_snapshots WHERE id=$1 LIMIT 1", [id]); if (!rows.length) return res.status(404).json({ ok:false, error:"snapshot not found" }); await saveConfig(rows[0].data); res.json({ ok:true }); }
+  catch (e) { res.status(500).json({ ok:false, error:e.message }); }
 });
 
 app.get("/admin/logout", (req, res) => { req.session.destroy(); res.redirect("/admin"); });
