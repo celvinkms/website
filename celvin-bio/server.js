@@ -7,6 +7,7 @@ const crypto = require("crypto");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+const BG_VIDEO_CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks: stabil auf Render, kein Out-of-Memory
 
 app.use(express.json({ limit: "200mb" }));
 app.use(express.urlencoded({ extended: true, limit: "200mb" }));
@@ -75,6 +76,10 @@ async function initDB() {
   await pool.query(`CREATE TABLE IF NOT EXISTS bio_events (id SERIAL PRIMARY KEY, type TEXT NOT NULL, path TEXT, link_index INTEGER, link_platform TEXT, link_label TEXT, referrer TEXT, user_agent TEXT, ip_hash TEXT, created_at TIMESTAMPTZ DEFAULT now())`);
   await pool.query(`CREATE TABLE IF NOT EXISTS bio_snapshots (id SERIAL PRIMARY KEY, label TEXT, data JSONB NOT NULL, created_at TIMESTAMPTZ DEFAULT now())`);
   await pool.query(`CREATE TABLE IF NOT EXISTS bio_assets (asset_key TEXT PRIMARY KEY, filename TEXT, content_type TEXT NOT NULL, data BYTEA NOT NULL, size_bytes INTEGER NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ DEFAULT now())`);
+  await pool.query(`ALTER TABLE bio_assets ADD COLUMN IF NOT EXISTS upload_kind TEXT NOT NULL DEFAULT 'single'`);
+  await pool.query(`ALTER TABLE bio_assets ADD COLUMN IF NOT EXISTS chunk_size INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE bio_assets ADD COLUMN IF NOT EXISTS chunk_count INTEGER NOT NULL DEFAULT 0`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS bio_asset_chunks (asset_key TEXT NOT NULL, chunk_index INTEGER NOT NULL, data BYTEA NOT NULL, size_bytes INTEGER NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ DEFAULT now(), PRIMARY KEY(asset_key, chunk_index))`);
   const { rows } = await pool.query("SELECT id FROM bio_config LIMIT 1");
   if (rows.length === 0) {
     const d = { ...DEFAULT_CONFIG, password: await bcrypt.hash("admin123", 10) };
@@ -703,22 +708,88 @@ app.get("/audio", async (req, res) => {
 });
 
 
-app.post("/admin/upload-bg-video", requireAuth, express.raw({ type: ["video/*", "application/octet-stream"], limit: "400mb" }), async (req, res) => {
+
+app.post("/admin/upload-bg-video-init", requireAuth, async (req, res) => {
+  try {
+    const filename = safeFileName(req.body?.name || "background-video");
+    const contentType = String(req.body?.contentType || "application/octet-stream");
+    const size = Number(req.body?.size || 0);
+    const chunkSize = Number(req.body?.chunkSize || BG_VIDEO_CHUNK_SIZE);
+    const chunkCount = Number(req.body?.chunkCount || Math.ceil(size / chunkSize));
+    const max = 400 * 1024 * 1024;
+    if (!size || size < 1) return res.status(400).json({ ok: false, error: "Keine Video-Größe empfangen." });
+    if (size > max) return res.status(413).json({ ok: false, error: "Video ist größer als 400MB." });
+    if (chunkSize < 512 * 1024 || chunkSize > 8 * 1024 * 1024) return res.status(400).json({ ok: false, error: "Ungültige Chunk-Größe." });
+    if (!contentType.startsWith("video/") && contentType !== "application/octet-stream") return res.status(415).json({ ok: false, error: "Nur Video-Dateien sind erlaubt." });
+    await pool.query("DELETE FROM bio_asset_chunks WHERE asset_key = $1", ["bg_video"]);
+    await pool.query(
+      "INSERT INTO bio_assets (asset_key, filename, content_type, data, size_bytes, upload_kind, chunk_size, chunk_count, updated_at) VALUES ($1, $2, $3, $4, $5, 'chunked', $6, $7, now()) ON CONFLICT (asset_key) DO UPDATE SET filename = EXCLUDED.filename, content_type = EXCLUDED.content_type, data = EXCLUDED.data, size_bytes = EXCLUDED.size_bytes, upload_kind = 'chunked', chunk_size = EXCLUDED.chunk_size, chunk_count = EXCLUDED.chunk_count, updated_at = now()",
+      ["bg_video", filename, contentType, Buffer.alloc(0), size, chunkSize, chunkCount]
+    );
+    res.json({ ok: true, chunkSize, chunkCount });
+  } catch (err) {
+    console.error("[upload-bg-video-init]", err);
+    res.status(500).json({ ok: false, error: "Upload konnte nicht vorbereitet werden." });
+  }
+});
+
+app.post("/admin/upload-bg-video-chunk", requireAuth, express.raw({ type: ["application/octet-stream", "video/*"], limit: "10mb" }), async (req, res) => {
+  try {
+    const index = Number(req.query.index);
+    if (!Number.isInteger(index) || index < 0) return res.status(400).json({ ok: false, error: "Ungültiger Chunk-Index." });
+    const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || []);
+    if (!buf.length) return res.status(400).json({ ok: false, error: "Leerer Chunk." });
+    if (buf.length > 8 * 1024 * 1024) return res.status(413).json({ ok: false, error: "Chunk zu groß." });
+    await pool.query(
+      "INSERT INTO bio_asset_chunks (asset_key, chunk_index, data, size_bytes, updated_at) VALUES ($1, $2, $3, $4, now()) ON CONFLICT (asset_key, chunk_index) DO UPDATE SET data = EXCLUDED.data, size_bytes = EXCLUDED.size_bytes, updated_at = now()",
+      ["bg_video", index, buf, buf.length]
+    );
+    res.json({ ok: true, index, size: buf.length });
+  } catch (err) {
+    console.error("[upload-bg-video-chunk]", err);
+    res.status(500).json({ ok: false, error: "Chunk konnte nicht gespeichert werden." });
+  }
+});
+
+app.post("/admin/upload-bg-video-complete", requireAuth, async (req, res) => {
+  try {
+    const meta = await pool.query("SELECT filename, content_type, size_bytes, chunk_count FROM bio_assets WHERE asset_key = $1", ["bg_video"]);
+    if (!meta.rows.length) return res.status(404).json({ ok: false, error: "Kein vorbereiteter Upload gefunden." });
+    const stat = await pool.query("SELECT COUNT(*)::int AS count, COALESCE(SUM(size_bytes),0)::int AS size FROM bio_asset_chunks WHERE asset_key = $1", ["bg_video"]);
+    const wantedCount = Number(meta.rows[0].chunk_count || 0);
+    const wantedSize = Number(meta.rows[0].size_bytes || 0);
+    const gotCount = Number(stat.rows[0].count || 0);
+    const gotSize = Number(stat.rows[0].size || 0);
+    if (gotCount !== wantedCount || gotSize !== wantedSize) {
+      return res.status(400).json({ ok: false, error: "Upload unvollständig: " + gotCount + "/" + wantedCount + " Chunks, " + gotSize + "/" + wantedSize + " Bytes." });
+    }
+    const c = await getConfig();
+    c.bg_type = "video";
+    c.bg_video_url = "/asset/bg-video?v=" + Date.now();
+    await saveConfig(c);
+    res.json({ ok: true, url: c.bg_video_url, filename: meta.rows[0].filename, size: wantedSize, content_type: meta.rows[0].content_type });
+  } catch (err) {
+    console.error("[upload-bg-video-complete]", err);
+    res.status(500).json({ ok: false, error: "Upload konnte nicht abgeschlossen werden." });
+  }
+});
+
+// Fallback für alte Clients: kleine Videos gehen weiter, große bitte chunked upload nutzen.
+app.post("/admin/upload-bg-video", requireAuth, express.raw({ type: ["video/*", "application/octet-stream"], limit: "25mb" }), async (req, res) => {
   try {
     const buf = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || []);
     if (!buf.length) return res.status(400).json({ ok: false, error: "Keine Video-Daten empfangen." });
     const contentType = req.headers["content-type"] || "application/octet-stream";
     if (!contentType.startsWith("video/") && contentType !== "application/octet-stream") return res.status(415).json({ ok: false, error: "Nur Video-Dateien sind erlaubt." });
     const filename = safeFileName(req.query.name || "background-video");
+    await pool.query("DELETE FROM bio_asset_chunks WHERE asset_key = $1", ["bg_video"]);
     await pool.query(
-      `INSERT INTO bio_assets (asset_key, filename, content_type, data, size_bytes, updated_at)
-       VALUES ($1, $2, $3, $4, $5, now())
-       ON CONFLICT (asset_key) DO UPDATE SET filename = EXCLUDED.filename, content_type = EXCLUDED.content_type, data = EXCLUDED.data, size_bytes = EXCLUDED.size_bytes, updated_at = now()`,
+      "INSERT INTO bio_assets (asset_key, filename, content_type, data, size_bytes, upload_kind, chunk_size, chunk_count, updated_at) VALUES ($1, $2, $3, $4, $5, 'single', 0, 0, now()) ON CONFLICT (asset_key) DO UPDATE SET filename = EXCLUDED.filename, content_type = EXCLUDED.content_type, data = EXCLUDED.data, size_bytes = EXCLUDED.size_bytes, upload_kind = 'single', chunk_size = 0, chunk_count = 0, updated_at = now()",
       ["bg_video", filename, contentType, buf, buf.length]
     );
     const c = await getConfig();
     c.bg_type = "video";
-    c.bg_video_url = `/asset/bg-video?v=${Date.now()}`;
+    c.bg_video_url = "/asset/bg-video?v=" + Date.now();
     await saveConfig(c);
     res.json({ ok: true, url: c.bg_video_url, filename, size: buf.length, content_type: contentType });
   } catch (err) {
@@ -729,6 +800,7 @@ app.post("/admin/upload-bg-video", requireAuth, express.raw({ type: ["video/*", 
 
 app.post("/admin/delete-bg-video", requireAuth, async (req, res) => {
   try {
+    await pool.query("DELETE FROM bio_asset_chunks WHERE asset_key = $1", ["bg_video"]);
     await pool.query("DELETE FROM bio_assets WHERE asset_key = $1", ["bg_video"]);
     const c = await getConfig();
     if (String(c.bg_video_url || "").startsWith("/asset/bg-video")) c.bg_video_url = "";
@@ -741,22 +813,58 @@ app.post("/admin/delete-bg-video", requireAuth, async (req, res) => {
   }
 });
 
+async function streamChunkedAsset(req, res, asset) {
+  const total = Number(asset.size_bytes || 0);
+  const contentType = asset.content_type || "video/mp4";
+  const chunkSize = Number(asset.chunk_size || BG_VIDEO_CHUNK_SIZE);
+  const filename = safeFileName(asset.filename || "background-video");
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.setHeader("Content-Disposition", "inline; filename=\"" + filename + "\"");
+  const range = parseRange(req.headers.range, total);
+  const start = range ? range.start : 0;
+  const end = range ? range.end : total - 1;
+  if (range) {
+    res.status(206);
+    res.setHeader("Content-Range", "bytes " + start + "-" + end + "/" + total);
+  }
+  res.setHeader("Content-Length", Math.max(0, end - start + 1));
+  if (!total || end < start) return res.end();
+  const firstChunk = Math.floor(start / chunkSize);
+  const lastChunk = Math.floor(end / chunkSize);
+  const chunks = await pool.query(
+    "SELECT chunk_index, data FROM bio_asset_chunks WHERE asset_key = $1 AND chunk_index BETWEEN $2 AND $3 ORDER BY chunk_index ASC",
+    ["bg_video", firstChunk, lastChunk]
+  );
+  for (const row of chunks.rows) {
+    const chunkIndex = Number(row.chunk_index);
+    const absStart = chunkIndex * chunkSize;
+    const buf = Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data || []);
+    const localStart = Math.max(0, start - absStart);
+    const localEnd = Math.min(buf.length - 1, end - absStart);
+    if (localEnd >= localStart) res.write(buf.slice(localStart, localEnd + 1));
+  }
+  res.end();
+}
+
 app.get("/asset/bg-video", async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT filename, content_type, data, size_bytes, updated_at FROM bio_assets WHERE asset_key = $1", ["bg_video"]);
+    const { rows } = await pool.query("SELECT filename, content_type, data, size_bytes, updated_at, upload_kind, chunk_size, chunk_count FROM bio_assets WHERE asset_key = $1", ["bg_video"]);
     if (!rows.length) return res.status(404).send("no background video");
     const asset = rows[0];
-    const buf = Buffer.isBuffer(asset.data) ? asset.data : Buffer.from(asset.data);
+    if (asset.upload_kind === "chunked") return streamChunkedAsset(req, res, asset);
+    const buf = Buffer.isBuffer(asset.data) ? asset.data : Buffer.from(asset.data || []);
     const total = buf.length;
     const contentType = asset.content_type || "video/mp4";
     res.setHeader("Accept-Ranges", "bytes");
     res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "public, max-age=3600");
-    res.setHeader("Content-Disposition", `inline; filename="${safeFileName(asset.filename || "background-video")}"`);
+    res.setHeader("Content-Disposition", "inline; filename=\"" + safeFileName(asset.filename || "background-video") + "\"");
     const range = parseRange(req.headers.range, total);
     if (range) {
       res.status(206);
-      res.setHeader("Content-Range", `bytes ${range.start}-${range.end}/${total}`);
+      res.setHeader("Content-Range", "bytes " + range.start + "-" + range.end + "/" + total);
       res.setHeader("Content-Length", range.end - range.start + 1);
       return res.end(buf.slice(range.start, range.end + 1));
     }
@@ -1492,6 +1600,27 @@ function syncBgVideoPreview(value){
   try{markDirty();}catch(e){}
 }
 
+async function postJson(url, data){
+  var res = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data||{})});
+  var json = await res.json().catch(function(){return null;});
+  if(!res.ok || !json || !json.ok) throw new Error((json && json.error) || "Request fehlgeschlagen");
+  return json;
+}
+async function uploadChunkWithRetry(url, blob, type){
+  var lastErr;
+  for(var attempt=1; attempt<=3; attempt++){
+    try{
+      var res=await fetch(url,{method:"POST",headers:{"Content-Type":type||"application/octet-stream"},body:blob});
+      var json=await res.json().catch(function(){return null;});
+      if(!res.ok || !json || !json.ok) throw new Error((json && json.error) || ("HTTP "+res.status));
+      return json;
+    }catch(e){
+      lastErr=e;
+      await new Promise(function(r){setTimeout(r, 450*attempt);});
+    }
+  }
+  throw lastErr || new Error("Chunk Upload fehlgeschlagen");
+}
 async function handleVideoUpload(input){
   var file=input && input.files && input.files[0];
   if(!file) return;
@@ -1502,22 +1631,30 @@ async function handleVideoUpload(input){
   }
   var max=400*1024*1024;
   if(file.size>max){
-    alert("Das Video ist zu groß ("+formatBytes(file.size)+"). Bitte komprimiere es auf unter 400MB, ideal trotzdem unter 20-30MB. Sonst wird Browser/Render/Postgres zu schwer.");
+    alert("Das Video ist zu groß ("+formatBytes(file.size)+"). Limit ist 400MB.");
     input.value="";
     return;
   }
+  var chunkSize=4*1024*1024;
+  var chunkCount=Math.ceil(file.size/chunkSize);
   var label=document.getElementById("bg_video_filename");
   var btn=input.parentElement && input.parentElement.querySelector("button");
-  if(label) label.textContent="Upload läuft: "+file.name+" ("+formatBytes(file.size)+") ...";
+  if(label) label.textContent="Upload wird vorbereitet: "+file.name+" ("+formatBytes(file.size)+")";
   if(btn) btn.disabled=true;
   try{
-    var res=await fetch("/admin/upload-bg-video?name="+encodeURIComponent(file.name),{
-      method:"POST",
-      headers:{"Content-Type":file.type||"application/octet-stream"},
-      body:file
-    });
-    var json=await res.json().catch(function(){return null;});
-    if(!res.ok || !json || !json.ok) throw new Error((json && json.error) || "Upload fehlgeschlagen");
+    var init=await postJson("/admin/upload-bg-video-init", {name:file.name, contentType:file.type||"application/octet-stream", size:file.size, chunkSize:chunkSize, chunkCount:chunkCount});
+    chunkSize=init.chunkSize||chunkSize;
+    chunkCount=init.chunkCount||chunkCount;
+    for(var i=0;i<chunkCount;i++){
+      var start=i*chunkSize;
+      var end=Math.min(file.size,start+chunkSize);
+      var blob=file.slice(start,end);
+      var pct=Math.round((i/chunkCount)*100);
+      if(label) label.textContent="Upload läuft: "+pct+"%  Chunk "+(i+1)+"/"+chunkCount+"  ("+formatBytes(end)+" / "+formatBytes(file.size)+")";
+      await uploadChunkWithRetry("/admin/upload-bg-video-chunk?index="+i, blob, "application/octet-stream");
+    }
+    if(label) label.textContent="Upload wird abgeschlossen ...";
+    var json=await postJson("/admin/upload-bg-video-complete", {});
     var urlInput=document.getElementById("bg_video_url");
     var type=document.getElementById("bg_type");
     if(urlInput) urlInput.value=json.url;
@@ -1533,7 +1670,6 @@ async function handleVideoUpload(input){
     if(btn) btn.disabled=false;
   }
 }
-
 async function clearBgVideo(){
   var inp=document.getElementById("bg_video_file");
   var url=document.getElementById("bg_video_url");
