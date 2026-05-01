@@ -3,12 +3,17 @@ const session = require("express-session");
 const bcrypt = require("bcrypt");
 const { Pool } = require("pg");
 const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const BG_VIDEO_CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks: stabil auf Render, kein Out-of-Memory
-const BG_VIDEO_STREAM_WINDOW = 2 * 1024 * 1024; // kleine Streaming-Fenster, damit Browser/Render nicht hängen
+const BG_VIDEO_STREAM_WINDOW = 24 * 1024 * 1024; // große Fenster + Datei-Cache: deutlich flüssiger für Videos
+const BG_VIDEO_CACHE_PATH = path.join(os.tmpdir(), "celvin-bg-video-cache.bin");
+let bgVideoCacheKey = "";
 
 app.use(express.json({ limit: "200mb" }));
 app.use(express.urlencoded({ extended: true, limit: "200mb" }));
@@ -130,6 +135,66 @@ function parseRange(rangeHeader, total, windowSize = null) {
   end = Math.min(end, total - 1);
   if (windowSize && end - start + 1 > windowSize) end = Math.min(total - 1, start + windowSize - 1);
   return { start, end, partial: true };
+}
+
+
+function getAssetCacheKey(asset) {
+  const updated = asset.updated_at instanceof Date ? asset.updated_at.toISOString() : String(asset.updated_at || "");
+  return [asset.size_bytes || 0, asset.chunk_count || 0, asset.chunk_size || 0, updated].join(":");
+}
+function clearBgVideoFileCache() {
+  bgVideoCacheKey = "";
+  try { if (fs.existsSync(BG_VIDEO_CACHE_PATH)) fs.unlinkSync(BG_VIDEO_CACHE_PATH); } catch (_) {}
+  try { if (fs.existsSync(BG_VIDEO_CACHE_PATH + ".tmp")) fs.unlinkSync(BG_VIDEO_CACHE_PATH + ".tmp"); } catch (_) {}
+}
+async function ensureBgVideoFileCache(asset) {
+  const total = Number(asset.size_bytes || 0);
+  const key = getAssetCacheKey(asset);
+  try {
+    const st = fs.existsSync(BG_VIDEO_CACHE_PATH) ? fs.statSync(BG_VIDEO_CACHE_PATH) : null;
+    if (bgVideoCacheKey === key && st && st.size === total) return BG_VIDEO_CACHE_PATH;
+  } catch (_) {}
+  const tmp = BG_VIDEO_CACHE_PATH + ".tmp";
+  try { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); } catch (_) {}
+  const fd = fs.openSync(tmp, "w");
+  try {
+    const count = Number(asset.chunk_count || 0);
+    for (let i = 0; i < count; i++) {
+      const { rows } = await pool.query(
+        "SELECT data, size_bytes FROM bio_asset_chunks WHERE asset_key = $1 AND chunk_index = $2 LIMIT 1",
+        ["bg_video", i]
+      );
+      if (!rows.length) throw new Error("missing bg_video chunk " + i);
+      const buf = Buffer.isBuffer(rows[0].data) ? rows[0].data : Buffer.from(rows[0].data || []);
+      fs.writeSync(fd, buf, 0, buf.length);
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+  fs.renameSync(tmp, BG_VIDEO_CACHE_PATH);
+  bgVideoCacheKey = key;
+  return BG_VIDEO_CACHE_PATH;
+}
+function streamVideoFile(req, res, filePath, asset) {
+  const stat = fs.statSync(filePath);
+  const total = stat.size;
+  const contentType = asset.content_type || "video/mp4";
+  const filename = safeFileName(asset.filename || "background-video");
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  res.setHeader("Content-Disposition", "inline; filename=\"" + filename + "\"");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  const range = parseRange(req.headers.range, total, null);
+  if (!range) {
+    res.status(416);
+    res.setHeader("Content-Range", "bytes */" + total);
+    return res.end();
+  }
+  res.status(206);
+  res.setHeader("Content-Range", "bytes " + range.start + "-" + range.end + "/" + total);
+  res.setHeader("Content-Length", range.end - range.start + 1);
+  fs.createReadStream(filePath, { start: range.start, end: range.end }).pipe(res);
 }
 
 function esc(v) {
@@ -739,6 +804,7 @@ app.post("/admin/upload-bg-video-init", requireAuth, async (req, res) => {
     if (size > max) return res.status(413).json({ ok: false, error: "Video ist größer als 400MB." });
     if (chunkSize < 512 * 1024 || chunkSize > 8 * 1024 * 1024) return res.status(400).json({ ok: false, error: "Ungültige Chunk-Größe." });
     if (!contentType.startsWith("video/") && contentType !== "application/octet-stream") return res.status(415).json({ ok: false, error: "Nur Video-Dateien sind erlaubt." });
+    clearBgVideoFileCache();
     await pool.query("DELETE FROM bio_asset_chunks WHERE asset_key = $1", ["bg_video"]);
     await pool.query(
       "INSERT INTO bio_assets (asset_key, filename, content_type, data, size_bytes, upload_kind, chunk_size, chunk_count, updated_at) VALUES ($1, $2, $3, $4, $5, 'chunked', $6, $7, now()) ON CONFLICT (asset_key) DO UPDATE SET filename = EXCLUDED.filename, content_type = EXCLUDED.content_type, data = EXCLUDED.data, size_bytes = EXCLUDED.size_bytes, upload_kind = 'chunked', chunk_size = EXCLUDED.chunk_size, chunk_count = EXCLUDED.chunk_count, updated_at = now()",
@@ -800,6 +866,7 @@ app.post("/admin/upload-bg-video", requireAuth, express.raw({ type: ["video/*", 
     const contentType = req.headers["content-type"] || "application/octet-stream";
     if (!contentType.startsWith("video/") && contentType !== "application/octet-stream") return res.status(415).json({ ok: false, error: "Nur Video-Dateien sind erlaubt." });
     const filename = safeFileName(req.query.name || "background-video");
+    clearBgVideoFileCache();
     await pool.query("DELETE FROM bio_asset_chunks WHERE asset_key = $1", ["bg_video"]);
     await pool.query(
       "INSERT INTO bio_assets (asset_key, filename, content_type, data, size_bytes, upload_kind, chunk_size, chunk_count, updated_at) VALUES ($1, $2, $3, $4, $5, 'single', 0, 0, now()) ON CONFLICT (asset_key) DO UPDATE SET filename = EXCLUDED.filename, content_type = EXCLUDED.content_type, data = EXCLUDED.data, size_bytes = EXCLUDED.size_bytes, upload_kind = 'single', chunk_size = 0, chunk_count = 0, updated_at = now()",
@@ -818,6 +885,7 @@ app.post("/admin/upload-bg-video", requireAuth, express.raw({ type: ["video/*", 
 
 app.post("/admin/delete-bg-video", requireAuth, async (req, res) => {
   try {
+    clearBgVideoFileCache();
     await pool.query("DELETE FROM bio_asset_chunks WHERE asset_key = $1", ["bg_video"]);
     await pool.query("DELETE FROM bio_assets WHERE asset_key = $1", ["bg_video"]);
     const c = await getConfig();
@@ -832,51 +900,8 @@ app.post("/admin/delete-bg-video", requireAuth, async (req, res) => {
 });
 
 async function streamChunkedAsset(req, res, asset) {
-  const total = Number(asset.size_bytes || 0);
-  const contentType = asset.content_type || "video/mp4";
-  const chunkSize = Number(asset.chunk_size || BG_VIDEO_CHUNK_SIZE);
-  const filename = safeFileName(asset.filename || "background-video");
-  const range = parseRange(req.headers.range, total, BG_VIDEO_STREAM_WINDOW);
-  if (!range) {
-    res.status(416);
-    res.setHeader("Content-Range", "bytes */" + total);
-    return res.end();
-  }
-  const start = range.start;
-  const end = range.end;
-  const expectedLength = Math.max(0, end - start + 1);
-  res.status(206);
-  res.setHeader("Accept-Ranges", "bytes");
-  res.setHeader("Content-Type", contentType);
-  res.setHeader("Content-Range", "bytes " + start + "-" + end + "/" + total);
-  res.setHeader("Content-Length", expectedLength);
-  res.setHeader("Cache-Control", "public, max-age=3600, immutable");
-  res.setHeader("Content-Disposition", "inline; filename=\"" + filename + "\"");
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  if (!total || end < start) return res.end();
-  const firstChunk = Math.floor(start / chunkSize);
-  const lastChunk = Math.floor(end / chunkSize);
-  const chunks = await pool.query(
-    "SELECT chunk_index, data FROM bio_asset_chunks WHERE asset_key = $1 AND chunk_index BETWEEN $2 AND $3 ORDER BY chunk_index ASC",
-    ["bg_video", firstChunk, lastChunk]
-  );
-  let written = 0;
-  for (const row of chunks.rows) {
-    const chunkIndex = Number(row.chunk_index);
-    const absStart = chunkIndex * chunkSize;
-    const buf = Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data || []);
-    const localStart = Math.max(0, start - absStart);
-    const localEnd = Math.min(buf.length - 1, end - absStart);
-    if (localEnd >= localStart) {
-      const part = buf.slice(localStart, localEnd + 1);
-      written += part.length;
-      res.write(part);
-    }
-  }
-  if (written !== expectedLength) {
-    console.error("[asset-bg-video] missing bytes", { start, end, expectedLength, written, firstChunk, lastChunk });
-  }
-  res.end();
+  const filePath = await ensureBgVideoFileCache(asset);
+  return streamVideoFile(req, res, filePath, asset);
 }
 
 app.get("/asset/bg-video", async (req, res) => {
@@ -908,6 +933,20 @@ app.get("/asset/bg-video", async (req, res) => {
   }
 });
 
+
+app.post("/admin/api/bg-video-rebuild-cache", requireAuth, async (req, res) => {
+  try {
+    clearBgVideoFileCache();
+    const { rows } = await pool.query("SELECT filename, content_type, data, size_bytes, updated_at, upload_kind, chunk_size, chunk_count FROM bio_assets WHERE asset_key = $1", ["bg_video"]);
+    if (!rows.length) return res.status(404).json({ ok: false, error: "no background video" });
+    if (rows[0].upload_kind !== "chunked") return res.json({ ok: true, mode: "single" });
+    await ensureBgVideoFileCache(rows[0]);
+    res.json({ ok: true, cached: true, size: rows[0].size_bytes });
+  } catch (err) {
+    console.error("[bg-video-rebuild-cache]", err);
+    res.status(500).json({ ok: false, error: "cache rebuild failed" });
+  }
+});
 
 app.get("/admin/api/bg-video-status", requireAuth, async (req, res) => {
   try {
