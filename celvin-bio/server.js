@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 3000;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 const BG_VIDEO_CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks: stabil auf Render, kein Out-of-Memory
 const BG_VIDEO_STREAM_WINDOW = 24 * 1024 * 1024; // große Fenster + Datei-Cache: deutlich flüssiger für Videos
+const BG_VIDEO_DIRECT_WINDOW = 6 * 1024 * 1024; // sofortiger Fallback: kleine Byte-Ranges direkt aus DB-Chunks
 const BG_VIDEO_CACHE_PATH = path.join(os.tmpdir(), "celvin-bg-video-cache.bin");
 const BG_VIDEO_UPLOAD_TMP_PATH = path.join(os.tmpdir(), "celvin-bg-video-upload.tmp");
 let bgVideoCacheKey = "";
@@ -150,6 +151,64 @@ function clearBgVideoFileCache() {
   try { if (fs.existsSync(BG_VIDEO_CACHE_PATH)) fs.unlinkSync(BG_VIDEO_CACHE_PATH); } catch (_) {}
   try { if (fs.existsSync(BG_VIDEO_CACHE_PATH + ".tmp")) fs.unlinkSync(BG_VIDEO_CACHE_PATH + ".tmp"); } catch (_) {}
   try { if (fs.existsSync(BG_VIDEO_UPLOAD_TMP_PATH)) fs.unlinkSync(BG_VIDEO_UPLOAD_TMP_PATH); } catch (_) {}
+}
+function isBgVideoFileCacheReady(asset) {
+  const total = Number(asset?.size_bytes || 0);
+  const key = getAssetCacheKey(asset || {});
+  try {
+    const st = fs.existsSync(BG_VIDEO_CACHE_PATH) ? fs.statSync(BG_VIDEO_CACHE_PATH) : null;
+    return Boolean(st && st.size === total && (bgVideoCacheKey === key || !bgVideoCacheKey));
+  } catch (_) { return false; }
+}
+async function readChunkedAssetRange(asset, start, end) {
+  const chunkSize = Number(asset.chunk_size || BG_VIDEO_CHUNK_SIZE) || BG_VIDEO_CHUNK_SIZE;
+  const firstChunk = Math.floor(start / chunkSize);
+  const lastChunk = Math.floor(end / chunkSize);
+  const { rows } = await pool.query(
+    "SELECT chunk_index, data FROM bio_asset_chunks WHERE asset_key = $1 AND chunk_index BETWEEN $2 AND $3 ORDER BY chunk_index ASC",
+    ["bg_video", firstChunk, lastChunk]
+  );
+  const byIndex = new Map(rows.map(r => [Number(r.chunk_index), Buffer.isBuffer(r.data) ? r.data : Buffer.from(r.data || [])]));
+  const parts = [];
+  for (let i = firstChunk; i <= lastChunk; i++) {
+    const buf = byIndex.get(i);
+    if (!buf) throw new Error("missing bg_video chunk " + i);
+    const chunkStart = i * chunkSize;
+    const from = Math.max(0, start - chunkStart);
+    const toExclusive = Math.min(buf.length, end - chunkStart + 1);
+    if (toExclusive > from) parts.push(buf.slice(from, toExclusive));
+  }
+  return Buffer.concat(parts);
+}
+async function streamChunkedAssetDirect(req, res, asset) {
+  const total = Number(asset.size_bytes || 0);
+  if (!total) return res.status(404).send("empty background video");
+  const contentType = asset.content_type || "video/mp4";
+  const filename = safeFileName(asset.filename || "background-video");
+  const range = parseRange(req.headers.range, total, BG_VIDEO_DIRECT_WINDOW);
+  if (!range) {
+    res.status(416);
+    res.setHeader("Content-Range", "bytes */" + total);
+    return res.end();
+  }
+  const chunk = await readChunkedAssetRange(asset, range.start, range.end);
+  res.status(206);
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Content-Range", "bytes " + range.start + "-" + range.end + "/" + total);
+  res.setHeader("Content-Length", chunk.length);
+  res.setHeader("Cache-Control", "public, max-age=3600, no-transform");
+  res.setHeader("Content-Disposition", "inline; filename=\"" + filename + "\"");
+  res.setHeader("X-Video-Mode", "db-range-fallback");
+  return res.end(chunk);
+}
+async function prewarmBgVideoCache() {
+  try {
+    const { rows } = await pool.query("SELECT filename, content_type, data, size_bytes, updated_at, upload_kind, chunk_size, chunk_count FROM bio_assets WHERE asset_key = $1", ["bg_video"]);
+    if (rows[0] && rows[0].upload_kind === "chunked" && !isBgVideoFileCacheReady(rows[0])) {
+      ensureBgVideoFileCache(rows[0]).catch(e => console.warn("[bg-video-prewarm]", e.message));
+    }
+  } catch (e) { console.warn("[bg-video-prewarm]", e.message); }
 }
 async function ensureBgVideoFileCache(asset) {
   const total = Number(asset.size_bytes || 0);
@@ -570,7 +629,7 @@ function renderBioPage(c) {
     : c.bg_type === "image" ? `url('${c.bg_image_url}') center/cover no-repeat fixed`
     : c.bg_type === "video" ? "transparent"
     : (c.bg_color||"#0a0a0a");
-  const bgVideoHtml = c.bg_type === "video" && c.bg_video_url ? `<video data-bg-video autoplay loop muted playsinline preload="auto" disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback" src="${c.bg_video_url}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3;background:#000;transform:translateZ(0);will-change:auto;"></video><div style="position:fixed;inset:0;background:rgba(0,0,0,${c.bg_overlay_opacity||0.3});z-index:-2;pointer-events:none;"></div><script>document.addEventListener("DOMContentLoaded",function(){document.querySelectorAll("video[data-bg-video]").forEach(function(v){v.muted=true;v.playsInline=true;v.defaultMuted=true;var p=function(){var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});};if(v.readyState>=2)p();else v.addEventListener("canplay",p,{once:true});document.addEventListener("click",p,{once:true});});});<\/script>` : "";
+  const bgVideoHtml = c.bg_type === "video" && c.bg_video_url ? `<video data-bg-video autoplay loop muted playsinline preload="auto" fetchpriority="high" disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback" src="${c.bg_video_url}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3;background:#000;transform:translateZ(0);will-change:auto;opacity:0;transition:opacity .18s linear;"></video><div style="position:fixed;inset:0;background:rgba(0,0,0,${c.bg_overlay_opacity||0.3});z-index:-2;pointer-events:none;"></div><script>document.addEventListener("DOMContentLoaded",function(){document.querySelectorAll("video[data-bg-video]").forEach(function(v){v.muted=true;v.playsInline=true;v.defaultMuted=true;v.setAttribute("muted","");var show=function(){v.style.opacity="1";};var p=function(){try{v.load();}catch(e){}var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});};v.addEventListener("loadeddata",show,{once:true});v.addEventListener("canplay",function(){show();p();},{once:true});v.addEventListener("playing",show,{once:true});p();document.addEventListener("click",p,{once:true});});});<\/script>` : "";
   const cardBg = c.card_style==="glass" ? "rgba(255,255,255,0.06)" : c.card_style==="light" ? "rgba(255,255,255,0.96)" : "rgba(17,17,17,0.95)";
   const cardBorder = c.card_style==="glass" ? "rgba(255,255,255,0.12)" : c.card_style==="light" ? "rgba(0,0,0,0.08)" : "#1e1e1e";
   const cardBlur = c.card_blur ? "backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);" : "";
@@ -699,6 +758,7 @@ function renderBioPage(c) {
 ${c.avatar_url?`<meta property="og:image" content="${esc(c.avatar_url)}">`:""}
 ${favicon?`<link rel="icon" href="${esc(favicon)}"><link rel="apple-touch-icon" href="${esc(favicon)}">`:""}
 ${c.custom_head||""}
+${isVideoBg && c.bg_video_url ? `<link rel="preload" as="video" href="${c.bg_video_url}" type="video/mp4">` : ""}
 <link href="https://fonts.googleapis.com/css2?family=${(c.font||"Syne").replace(/ /g,"+")}:wght@400;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -946,8 +1006,11 @@ app.post("/admin/delete-bg-video", requireAuth, async (req, res) => {
 });
 
 async function streamChunkedAsset(req, res, asset) {
-  const filePath = await ensureBgVideoFileCache(asset);
-  return streamVideoFile(req, res, filePath, asset);
+  // Turbo: Datei-Cache nutzen, falls fertig. Wenn Render frisch gestartet ist,
+  // nicht auf komplette 100+MB-Rekonstruktion warten, sondern sofort angefragte Byte-Range aus DB-Chunks liefern.
+  if (isBgVideoFileCacheReady(asset)) return streamVideoFile(req, res, BG_VIDEO_CACHE_PATH, asset);
+  if (!bgVideoCachePromise) ensureBgVideoFileCache(asset).catch(e => console.warn("[bg-video-cache-background]", e.message));
+  return streamChunkedAssetDirect(req, res, asset);
 }
 
 app.get("/asset/bg-video", async (req, res) => {
@@ -998,7 +1061,7 @@ app.get("/admin/api/bg-video-status", requireAuth, async (req, res) => {
   try {
     const meta = await pool.query("SELECT filename, content_type, size_bytes, upload_kind, chunk_size, chunk_count, updated_at FROM bio_assets WHERE asset_key = $1", ["bg_video"]);
     const stat = await pool.query("SELECT COUNT(*)::int AS chunks_present, COALESCE(SUM(size_bytes),0)::bigint AS bytes_present FROM bio_asset_chunks WHERE asset_key = $1", ["bg_video"]);
-    res.json({ ok: true, asset: meta.rows[0] || null, chunks: stat.rows[0] || null });
+    res.json({ ok: true, asset: meta.rows[0] || null, chunks: stat.rows[0] || null, cache_ready: meta.rows[0] ? isBgVideoFileCacheReady(meta.rows[0]) : false, cache_path: BG_VIDEO_CACHE_PATH });
   } catch (err) {
     console.error("[bg-video-status]", err);
     res.status(500).json({ ok: false, error: err.message });
@@ -1173,6 +1236,8 @@ function renderV6PublicSkin(c){
 body{isolation:isolate;background-blend-mode:screen,normal!important;perspective:1100px;}
 body::before{content:'';position:fixed;inset:-20%;z-index:0;pointer-events:none;background:radial-gradient(circle at 18% 12%,${a}33,transparent 24%),radial-gradient(circle at 82% 82%,rgba(255,255,255,.12),transparent 22%),linear-gradient(135deg,rgba(255,255,255,.04),transparent 38%);filter:blur(10px);animation:v6Aurora 14s ease-in-out infinite alternate;}
 body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.03) 1px,transparent 1px);background-size:52px 52px;mask-image:radial-gradient(circle at center,#000 0,transparent 72%);opacity:.42;}
+body.has-bg-video::before,body.has-bg-video::after{display:none!important;content:none!important;background:none!important;animation:none!important;filter:none!important;}
+body.has-bg-video{background-image:none!important;}
 @keyframes v6Aurora{0%{transform:translate3d(-2%,0,0) rotate(0deg) scale(1)}100%{transform:translate3d(2%,-2%,0) rotate(7deg) scale(1.08)}}
 .card{max-width:min(560px,calc(100vw - 28px))!important;border-radius:34px!important;border:1px solid color-mix(in srgb,var(--a) 34%,rgba(255,255,255,.16))!important;background:linear-gradient(145deg,rgba(255,255,255,.115),rgba(255,255,255,.035) 46%,rgba(0,0,0,.25))!important;box-shadow:0 35px 130px rgba(0,0,0,.55),0 0 90px color-mix(in srgb,var(--a) 16%,transparent),inset 0 1px 0 rgba(255,255,255,.14)!important;backdrop-filter:blur(28px) saturate(160%)!important;transform-style:preserve-3d;}
 .card::before{content:'V6';position:absolute;right:18px;top:14px;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--a);opacity:.65;border:1px solid color-mix(in srgb,var(--a) 30%,transparent);border-radius:999px;padding:4px 8px;background:rgba(0,0,0,.22)}
@@ -2159,4 +2224,7 @@ app.post("/admin/api/restore-snapshot/:id", requireAuth, async (req, res) => {
 
 app.get("/admin/logout", (req, res) => { req.session.destroy(); res.redirect("/admin"); });
 
-initDB().then(() => app.listen(PORT, () => console.log("Server läuft auf Port", PORT))).catch(err => { console.error("DB Init Fehler:", err); process.exit(1); });
+initDB().then(() => {
+  prewarmBgVideoCache();
+  app.listen(PORT, () => console.log("Server läuft auf Port", PORT));
+}).catch(err => { console.error("DB Init Fehler:", err); process.exit(1); });
