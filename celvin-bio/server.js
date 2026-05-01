@@ -1895,3 +1895,4 @@ app.post("/admin/api/restore-snapshot/:id", requireAuth, async (req, res) => {
 app.get("/admin/logout", (req, res) => { req.session.destroy(); res.redirect("/admin"); });
 
 initDB().then(() => app.listen(PORT, () => console.log("Server läuft auf Port", PORT))).catch(err => { console.error("DB Init Fehler:", err); process.exit(1); });
+ 
