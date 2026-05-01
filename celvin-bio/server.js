@@ -624,7 +624,7 @@ function renderV5PublicSuite(c){
   return html;
 }
 
-function renderBioPage(c) {
+function renderBioPage(c, req) {
   const bg = c.bg_type === "gradient"
     ? `linear-gradient(${c.bg_gradient_angle||135}deg, ${c.bg_gradient_from}, ${c.bg_gradient_to})`
     : c.bg_type === "image" ? `url('${c.bg_image_url}') center/cover no-repeat fixed`
@@ -763,14 +763,41 @@ function renderBioPage(c) {
   const favicon = c.favicon_url || c.avatar_url || "";
   const featureClasses = enabledFeatureClasses(c.feature_flags, { videoMode: isVideoBg }) + (isVideoBg ? " has-bg-video" : "");
   const customJS = c.custom_js ? String(c.custom_js).replace(/<\/script/gi, "<\\/script") : "";
+  const baseUrl = c.canonical_url || publicUrl(req);
+  const canonical = c.canonical_url || (baseUrl + "/");
+  const shareImage = baseUrl.replace(/\/$/, "") + "/share-card.svg?v=" + encodeURIComponent((c.username||"bio") + "-" + (c.meta_title||"default"));
+  const linkCount = Array.isArray(c.links) ? c.links.filter(x => getLinkUrl(x)).length : 0;
+  const badgeCount = Array.isArray(c.badges) ? c.badges.length : 0;
+  const embedDesc = (metaDesc || `${linkCount} links • ${badgeCount} badges`).slice(0, 180);
+  const siteName = (c.username ? `@${c.username}` : metaTitle) + " • bio";
 
   return `<!DOCTYPE html>
 <html lang="de"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>${esc(metaTitle)}</title>
-<meta name="description" content="${esc(metaDesc)}">
-<meta property="og:title" content="${esc(metaTitle)}"><meta property="og:description" content="${esc(metaDesc)}">
-${c.avatar_url?`<meta property="og:image" content="${esc(c.avatar_url)}">`:""}
+<meta name="description" content="${esc(embedDesc)}">
+${c.seo_keywords?`<meta name="keywords" content="${esc(c.seo_keywords)}">`:""}
+<meta name="theme-color" content="${esc(c.accent||"#c8ff00")}">
+<link rel="canonical" href="${esc(canonical)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="${esc(canonical)}">
+<meta property="og:site_name" content="${esc(siteName)}">
+<meta property="og:locale" content="de_DE">
+<meta property="og:title" content="${esc(metaTitle)}">
+<meta property="og:description" content="${esc(embedDesc)}">
+<meta property="og:image" content="${esc(shareImage)}">
+<meta property="og:image:secure_url" content="${esc(shareImage)}">
+<meta property="og:image:type" content="image/svg+xml">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${esc(metaTitle)} — ${esc(embedDesc)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${esc(metaTitle)}">
+<meta name="twitter:description" content="${esc(embedDesc)}">
+<meta name="twitter:image" content="${esc(shareImage)}">
+<meta name="twitter:image:alt" content="${esc(metaTitle)} — ${esc(embedDesc)}">
+<meta name="twitter:url" content="${esc(canonical)}">
+<link rel="alternate" type="application/json+oembed" title="${esc(metaTitle)}" href="${esc(baseUrl.replace(/\/$/, "") + "/oembed.json")}">
 ${favicon?`<link rel="icon" href="${esc(favicon)}"><link rel="apple-touch-icon" href="${esc(favicon)}">`:""}
 ${c.custom_head||""}
 ${isVideoBg && c.bg_video_url ? `<link rel="preload" as="video" href="${c.bg_video_url}" type="video/mp4">` : ""}
@@ -846,7 +873,7 @@ app.get("/", async (req, res) => {
   const c = await getConfig();
   if (c.show_views) { c.views = (c.views||0)+1; await saveConfig(c); }
   trackEvent(req, "view", { config: c }).catch(()=>{});
-  res.send(renderBioPage(c));
+  res.send(renderBioPage(c, req));
 });
 
 // Audio-Streaming-Endpoint mit Range-Request-Support (wichtig für Safari + Autoplay)
@@ -2163,6 +2190,30 @@ app.get("/sitemap.xml", async (req, res) => {
   const base = publicUrl(req);
   res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${base}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url></urlset>`);
 });
+app.get("/oembed.json", async (req, res) => {
+  const c = await getConfig();
+  const base = c.canonical_url || publicUrl(req);
+  const title = c.meta_title || c.username || "bio";
+  const desc = c.meta_description || String(c.bio || "").split("\n")[0] || "";
+  res.json({
+    version: "1.0",
+    type: "link",
+    provider_name: "celvin bio",
+    provider_url: base,
+    title,
+    author_name: c.username || "username",
+    author_url: base,
+    thumbnail_url: base.replace(/\/$/, "") + "/share-card.svg",
+    thumbnail_width: 1200,
+    thumbnail_height: 630,
+    width: 1200,
+    height: 630,
+    url: base,
+    cache_age: 3600,
+    description: desc
+  });
+});
+
 app.get("/manifest.webmanifest", async (req, res) => {
   const c = await getConfig();
   res.type("application/manifest+json").send({
@@ -2182,10 +2233,49 @@ app.get("/theme.json", async (req, res) => {
 app.get("/share-card.svg", async (req, res) => {
   const c = await getConfig();
   const title = esc(c.meta_title || c.username || "bio");
-  const desc = esc(c.meta_description || String(c.bio || "").split("\n")[0] || "");
+  const username = esc("@" + (c.username || "username"));
+  const rawDesc = c.meta_description || String(c.bio || "").split("\n")[0] || "your corner of the internet";
+  const desc = esc(String(rawDesc).slice(0, 110));
   const a = safeColor(c.accent, "#c8ff00") || "#c8ff00";
-  const bgc = safeColor(c.bg_color, "#080808") || "#080808";
-  res.type("image/svg+xml").send(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${bgc}"/><stop offset="1" stop-color="#111827"/></linearGradient></defs><rect width="1200" height="630" fill="url(#g)"/><circle cx="970" cy="100" r="220" fill="${a}" opacity=".18"/><circle cx="160" cy="540" r="260" fill="${a}" opacity=".12"/><rect x="90" y="95" width="1020" height="440" rx="42" fill="rgba(255,255,255,.06)" stroke="${a}" stroke-opacity=".45"/><text x="140" y="255" fill="${a}" font-size="30" font-family="monospace">bio profile</text><text x="140" y="335" fill="#fff" font-size="78" font-family="Arial, sans-serif" font-weight="800">${title}</text><text x="140" y="410" fill="#cbd5e1" font-size="30" font-family="Arial, sans-serif">${desc}</text></svg>`);
+  const bg1 = safeColor(c.bg_gradient_from || c.bg_color, "#080808") || "#080808";
+  const bg2 = safeColor(c.bg_gradient_to || "#111827", "#111827") || "#111827";
+  const badgeItems = (Array.isArray(c.badges) ? c.badges : []).slice(0, 4).map(x => esc(typeof x === "string" ? x : (x && x.name) || "")).filter(Boolean);
+  const links = Array.isArray(c.links) ? c.links.filter(x => getLinkUrl(x)).length : 0;
+  const status = esc(c.status || "online");
+  const avatarEmoji = esc(c.avatar_type === "emoji" ? (c.avatar_emoji || "✦") : "✦");
+  const badgeSvg = badgeItems.map((b, i) => {
+    const x = 120 + i * 160;
+    return `<g><rect x="${x}" y="470" rx="18" width="140" height="42" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.12)"/><text x="${x+70}" y="497" text-anchor="middle" fill="#f8fafc" font-size="20" font-family="Arial, sans-serif">${b}</text></g>`;
+  }).join("");
+  res.type("image/svg+xml").send(`
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${bg1}"/><stop offset="1" stop-color="${bg2}"/></linearGradient>
+    <linearGradient id="acc" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${a}"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="52"/></filter>
+    <filter id="shadow"><feDropShadow dx="0" dy="20" stdDeviation="30" flood-color="rgba(0,0,0,.35)"/></filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="980" cy="84" r="220" fill="${a}" opacity=".18" filter="url(#blur)"/>
+  <circle cx="160" cy="570" r="250" fill="#ffffff" opacity=".07" filter="url(#blur)"/>
+  <rect x="72" y="62" width="1056" height="506" rx="42" fill="rgba(255,255,255,.055)" stroke="rgba(255,255,255,.16)" filter="url(#shadow)"/>
+  <rect x="104" y="94" width="154" height="154" rx="38" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.16)"/>
+  <text x="181" y="190" text-anchor="middle" fill="#ffffff" font-size="74">${avatarEmoji}</text>
+  <rect x="286" y="108" rx="18" width="122" height="36" fill="rgba(255,255,255,.08)" stroke="rgba(255,255,255,.12)"/>
+  <circle cx="312" cy="126" r="6" fill="${a}"/>
+  <text x="328" y="131" fill="#e5e7eb" font-size="18" font-family="monospace">${status}</text>
+  <text x="104" y="320" fill="#94a3b8" font-size="24" font-family="monospace">discord rich embed</text>
+  <text x="104" y="392" fill="url(#acc)" font-size="70" font-family="Arial, sans-serif" font-weight="800">${title}</text>
+  <text x="104" y="440" fill="#e5e7eb" font-size="34" font-family="Arial, sans-serif">${username}</text>
+  <text x="104" y="518" fill="#cbd5e1" font-size="28" font-family="Arial, sans-serif">${desc}</text>
+  <g>
+    <rect x="930" y="420" width="160" height="88" rx="28" fill="rgba(0,0,0,.24)" stroke="rgba(255,255,255,.12)"/>
+    <text x="1010" y="458" text-anchor="middle" fill="#94a3b8" font-size="18" font-family="monospace">links</text>
+    <text x="1010" y="492" text-anchor="middle" fill="#fff" font-size="34" font-family="Arial" font-weight="800">${links}</text>
+  </g>
+  ${badgeSvg}
+  <text x="104" y="552" fill="${a}" font-size="18" font-family="monospace">celvin style • modern preview card</text>
+</svg>`);
 });
 
 app.get("/admin/api/analytics", requireAuth, async (req, res) => {
