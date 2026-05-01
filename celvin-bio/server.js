@@ -3,6 +3,7 @@ const session = require("express-session");
 const bcrypt = require("bcrypt");
 const { Pool } = require("pg");
 const crypto = require("crypto");
+const zlib = require("zlib");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -765,7 +766,7 @@ function renderBioPage(c, req) {
   const customJS = c.custom_js ? String(c.custom_js).replace(/<\/script/gi, "<\\/script") : "";
   const baseUrl = c.canonical_url || publicUrl(req);
   const canonical = c.canonical_url || (baseUrl + "/");
-  const shareImage = baseUrl.replace(/\/$/, "") + "/share-card.svg?v=" + encodeURIComponent((c.username||"bio") + "-" + (c.meta_title||"default"));
+  const shareImage = baseUrl.replace(/\/$/, "") + "/share-card.png?v=" + encodeURIComponent((c.username||"bio") + "-" + (c.meta_title||"default"));
   const linkCount = Array.isArray(c.links) ? c.links.filter(x => getLinkUrl(x)).length : 0;
   const badgeCount = Array.isArray(c.badges) ? c.badges.length : 0;
   const embedDesc = (metaDesc || `${linkCount} links • ${badgeCount} badges`).slice(0, 180);
@@ -787,7 +788,7 @@ ${c.seo_keywords?`<meta name="keywords" content="${esc(c.seo_keywords)}">`:""}
 <meta property="og:description" content="${esc(embedDesc)}">
 <meta property="og:image" content="${esc(shareImage)}">
 <meta property="og:image:secure_url" content="${esc(shareImage)}">
-<meta property="og:image:type" content="image/svg+xml">
+<meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="${esc(metaTitle)} — ${esc(embedDesc)}">
@@ -1198,7 +1199,7 @@ function build(){
   addSection('v4studio','V4 Studio', buildStudioHtml());
   addSection('analytics','Analytics', '<div class="v4stats"><div class="v4stat"><b id="v4views">-</b><span>Views 7 Tage</span></div><div class="v4stat"><b id="v4clicks">-</b><span>Klicks 7 Tage</span></div><div class="v4stat"><b id="v4ctr">-</b><span>CTR</span></div><div class="v4stat"><b id="v4links">-</b><span>Top Links</span></div></div><div class="v4panel"><h3>Top Links</h3><table class="v4table"><thead><tr><th>Link</th><th>Klicks</th></tr></thead><tbody id="v4TopLinks"><tr><td colspan="2">lade...</td></tr></tbody></table></div><div class="v4panel"><h3>Letzte Events</h3><table class="v4table"><thead><tr><th>Zeit</th><th>Typ</th><th>Info</th></tr></thead><tbody id="v4Events"><tr><td colspan="3">lade...</td></tr></tbody></table></div><div class="feature-actions"><button class="bab" onclick="v4LoadAnalytics()">Refresh Analytics</button><button class="bab mini-danger" onclick="v4ResetAnalytics()">Analytics löschen</button></div>');
   addSection('automation','Automation Lab', '<div class="v4grid"><div class="v4panel"><h3>One-click Presets</h3><div class="v4pillrow"><button class="bab" onclick="v4Preset(\\'dating\\')">Dating Bio</button><button class="bab" onclick="v4Preset(\\'gamer\\')">Gamer Bio</button><button class="bab" onclick="v4Preset(\\'vip\\')">VIP Look</button><button class="bab" onclick="v4Preset(\\'minimal\\')">Minimal Flex</button></div><p class="v4small">Presets setzen sinnvolle Module, Texte und Feature-Kombis. Danach normal speichern.</p></div><div class="v4panel"><h3>Bio Ideas Generator</h3><div class="v4ai" id="v4IdeaBox">Klick auf generieren und du bekommst sofort Bio-Ideen basierend auf deinem aktuellen Style.</div><button class="bab" onclick="v4GenerateIdeas()">Ideen generieren</button></div></div><div class="v4panel"><h3>Quality Checklist</h3><div id="v4Checklist" class="v4featureMatrix"></div></div>');
-  addSection('sharekit','Share Kit', '<div class="v4grid"><div class="v4panel"><h3>Public Endpoints</h3><p class="v4small">/manifest.webmanifest · /robots.txt · /sitemap.xml · /share-card.svg · /theme.json · /healthz</p><div class="v4pillrow"><a class="bab" href="/share-card.svg" target="_blank">Share Card</a><a class="bab" href="/manifest.webmanifest" target="_blank">Manifest</a><a class="bab" href="/theme.json" target="_blank">Theme JSON</a></div></div><div class="v4panel"><h3>Backups</h3><div class="v4pillrow"><button class="bab" onclick="v4MakeSnapshot()">Snapshot erstellen</button><button class="bab" onclick="v4ListSnapshots()">Snapshots laden</button><button class="bab" onclick="exportDraftConfig()">Draft export</button></div><div id="v4Snapshots" class="v4small" style="margin-top:10px"></div></div></div>');
+  addSection('sharekit','Share Kit', '<div class="v4grid"><div class="v4panel"><h3>Public Endpoints</h3><p class="v4small">/manifest.webmanifest · /robots.txt · /sitemap.xml · /share-card.png · /theme.json · /healthz</p><div class="v4pillrow"><a class="bab" href="/share-card.png" target="_blank">Share Card</a><a class="bab" href="/manifest.webmanifest" target="_blank">Manifest</a><a class="bab" href="/theme.json" target="_blank">Theme JSON</a></div></div><div class="v4panel"><h3>Backups</h3><div class="v4pillrow"><button class="bab" onclick="v4MakeSnapshot()">Snapshot erstellen</button><button class="bab" onclick="v4ListSnapshots()">Snapshots laden</button><button class="bab" onclick="exportDraftConfig()">Draft export</button></div><div id="v4Snapshots" class="v4small" style="margin-top:10px"></div></div></div>');
   setTimeout(function(){v4LoadAnalytics();v4BuildChecklist();},250);
 }
 window.v4LoadAnalytics=function(){fetch('/admin/api/analytics').then(r=>r.json()).then(function(d){document.getElementById('v4views').textContent=d.views_7d||0;document.getElementById('v4clicks').textContent=d.clicks_7d||0;document.getElementById('v4ctr').textContent=(d.ctr||0)+'%';document.getElementById('v4links').textContent=(d.top_links||[]).length;document.getElementById('v4TopLinks').innerHTML=(d.top_links||[]).map(function(x){return '<tr><td>'+h(x.label||x.platform||'link')+'</td><td>'+x.clicks+'</td></tr>';}).join('')||'<tr><td colspan="2">noch keine Klicks</td></tr>';document.getElementById('v4Events').innerHTML=(d.events||[]).map(function(x){return '<tr><td>'+h(x.created_at||'')+'</td><td>'+h(x.type||'')+'</td><td>'+h(x.link_label||x.path||'')+'</td></tr>';}).join('')||'<tr><td colspan="3">noch keine Events</td></tr>';}).catch(function(e){console.warn(e);});}
@@ -2203,7 +2204,7 @@ app.get("/oembed.json", async (req, res) => {
     title,
     author_name: c.username || "username",
     author_url: base,
-    thumbnail_url: base.replace(/\/$/, "") + "/share-card.svg",
+    thumbnail_url: base.replace(/\/$/, "") + "/share-card.png",
     thumbnail_width: 1200,
     thumbnail_height: 630,
     width: 1200,
@@ -2230,6 +2231,85 @@ app.get("/theme.json", async (req, res) => {
   const c = await getConfig();
   res.json({ username: c.username, accent: c.accent, font: c.font, features: Object.keys(c.feature_flags || {}).filter(k => c.feature_flags[k]) });
 });
+
+const PNG_FONT = {
+  "A":["01110","10001","10001","11111","10001","10001","10001"],"B":["11110","10001","10001","11110","10001","10001","11110"],"C":["01111","10000","10000","10000","10000","10000","01111"],"D":["11110","10001","10001","10001","10001","10001","11110"],"E":["11111","10000","10000","11110","10000","10000","11111"],"F":["11111","10000","10000","11110","10000","10000","10000"],"G":["01111","10000","10000","10011","10001","10001","01111"],"H":["10001","10001","10001","11111","10001","10001","10001"],"I":["11111","00100","00100","00100","00100","00100","11111"],"J":["00111","00010","00010","00010","10010","10010","01100"],"K":["10001","10010","10100","11000","10100","10010","10001"],"L":["10000","10000","10000","10000","10000","10000","11111"],"M":["10001","11011","10101","10101","10001","10001","10001"],"N":["10001","11001","10101","10011","10001","10001","10001"],"O":["01110","10001","10001","10001","10001","10001","01110"],"P":["11110","10001","10001","11110","10000","10000","10000"],"Q":["01110","10001","10001","10001","10101","10010","01101"],"R":["11110","10001","10001","11110","10100","10010","10001"],"S":["01111","10000","10000","01110","00001","00001","11110"],"T":["11111","00100","00100","00100","00100","00100","00100"],"U":["10001","10001","10001","10001","10001","10001","01110"],"V":["10001","10001","10001","10001","10001","01010","00100"],"W":["10001","10001","10001","10101","10101","10101","01010"],"X":["10001","10001","01010","00100","01010","10001","10001"],"Y":["10001","10001","01010","00100","00100","00100","00100"],"Z":["11111","00001","00010","00100","01000","10000","11111"],
+  "0":["01110","10001","10011","10101","11001","10001","01110"],"1":["00100","01100","00100","00100","00100","00100","01110"],"2":["01110","10001","00001","00010","00100","01000","11111"],"3":["11110","00001","00001","01110","00001","00001","11110"],"4":["10010","10010","10010","11111","00010","00010","00010"],"5":["11111","10000","10000","11110","00001","00001","11110"],"6":["01110","10000","10000","11110","10001","10001","01110"],"7":["11111","00001","00010","00100","01000","01000","01000"],"8":["01110","10001","10001","01110","10001","10001","01110"],"9":["01110","10001","10001","01111","00001","00001","01110"],
+  " ":["00000","00000","00000","00000","00000","00000","00000"],"@":["01110","10001","10111","10101","10111","10000","01111"],".":["00000","00000","00000","00000","00000","01100","01100"],"-":["00000","00000","00000","11111","00000","00000","00000"],"_":["00000","00000","00000","00000","00000","00000","11111"],":":["00000","01100","01100","00000","01100","01100","00000"],"/":"".split(""),"•":["00000","00100","01110","00100","00000","00000","00000"]
+};
+function pngColor(hex, fallback){
+  hex = String(hex || fallback || '#111111').trim();
+  if(!/^#[0-9a-fA-F]{6}$/.test(hex)) hex = fallback || '#111111';
+  const n = parseInt(hex.slice(1),16); return [(n>>16)&255,(n>>8)&255,n&255,255];
+}
+function pngBlend(data, w, h, x, y, color, alpha){
+  x = x|0; y = y|0; if(x<0||y<0||x>=w||y>=h) return;
+  const i = (y*w+x)*4; const a = Math.max(0, Math.min(1, alpha));
+  data[i] = data[i]*(1-a) + color[0]*a;
+  data[i+1] = data[i+1]*(1-a) + color[1]*a;
+  data[i+2] = data[i+2]*(1-a) + color[2]*a;
+  data[i+3] = 255;
+}
+function pngRect(data,w,h,x,y,rw,rh,color,alpha,radius=0){
+  for(let yy=Math.max(0,y|0); yy<Math.min(h,(y+rh)|0); yy++) for(let xx=Math.max(0,x|0); xx<Math.min(w,(x+rw)|0); xx++){
+    if(radius){ const dx=Math.max(x+radius-xx,0,xx-(x+rw-radius)); const dy=Math.max(y+radius-yy,0,yy-(y+rh-radius)); if(dx*dx+dy*dy>radius*radius) continue; }
+    pngBlend(data,w,h,xx,yy,color,alpha);
+  }
+}
+function pngCircle(data,w,h,cx,cy,r,color,alpha){
+  const r2=r*r;
+  for(let yy=Math.max(0,cy-r|0); yy<Math.min(h,cy+r|0); yy++) for(let xx=Math.max(0,cx-r|0); xx<Math.min(w,cx+r|0); xx++){
+    const dx=xx-cx,dy=yy-cy,d=dx*dx+dy*dy; if(d>r2) continue;
+    pngBlend(data,w,h,xx,yy,color,alpha*(1-Math.sqrt(d)/r));
+  }
+}
+function pngText(data,w,h,text,x,y,scale,color,alpha=1,maxChars=38){
+  text = String(text||'').toUpperCase().replace(/[^A-Z0-9 @._:\-•]/g,'').slice(0,maxChars);
+  let cx=x;
+  for(const ch of text){ const glyph=PNG_FONT[ch] || PNG_FONT[' '];
+    for(let gy=0;gy<7;gy++) for(let gx=0;gx<5;gx++) if(glyph[gy] && glyph[gy][gx]==='1') pngRect(data,w,h,cx+gx*scale,y+gy*scale,scale,scale,color,alpha,0);
+    cx += 6*scale;
+  }
+}
+function crc32(buf){
+  let c = ~0; for(let i=0;i<buf.length;i++){ c ^= buf[i]; for(let k=0;k<8;k++) c = (c>>>1) ^ (0xEDB88320 & -(c&1)); } return ~c >>> 0;
+}
+function pngChunk(type, data){
+  const t = Buffer.from(type); const len = Buffer.alloc(4); len.writeUInt32BE(data.length,0);
+  const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(Buffer.concat([t,data])),0);
+  return Buffer.concat([len,t,data,crc]);
+}
+function encodePngRGBA(w,h,rgba){
+  const raw = Buffer.alloc((w*4+1)*h);
+  for(let y=0;y<h;y++){ raw[y*(w*4+1)] = 0; Buffer.from(rgba.buffer, rgba.byteOffset + y*w*4, w*4).copy(raw, y*(w*4+1)+1); }
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w,0); ihdr.writeUInt32BE(h,4); ihdr[8]=8; ihdr[9]=6; ihdr[10]=0; ihdr[11]=0; ihdr[12]=0;
+  return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]), pngChunk('IHDR', ihdr), pngChunk('IDAT', zlib.deflateSync(raw,{level:6})), pngChunk('IEND', Buffer.alloc(0))]);
+}
+function makeShareCardPng(c){
+  const w=1200,h=630; const data = new Uint8ClampedArray(w*h*4);
+  const bg1=pngColor(c.bg_gradient_from || c.bg_color, '#090909'), bg2=pngColor(c.bg_gradient_to || '#111827', '#111827'), acc=pngColor(c.accent,'#c8ff00');
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){ const t=(x/w*0.58+y/h*0.42); const i=(y*w+x)*4; data[i]=bg1[0]*(1-t)+bg2[0]*t; data[i+1]=bg1[1]*(1-t)+bg2[1]*t; data[i+2]=bg1[2]*(1-t)+bg2[2]*t; data[i+3]=255; }
+  pngCircle(data,w,h,980,90,330,acc,.32); pngCircle(data,w,h,150,560,300,[255,255,255,255],.10); pngCircle(data,w,h,640,320,520,[0,0,0,255],.18);
+  pngRect(data,w,h,72,62,1056,506,[255,255,255,255],.055,42); pngRect(data,w,h,72,62,1056,3,acc,.5,0); pngRect(data,w,h,72,565,1056,3,[255,255,255,255],.08,0);
+  pngRect(data,w,h,104,94,154,154,[255,255,255,255],.08,34); pngRect(data,w,h,112,102,138,138,acc,.13,28); pngText(data,w,h,'@',145,132,14,[255,255,255,255],.78,1);
+  pngRect(data,w,h,286,108,150,38,[255,255,255,255],.08,18); pngCircle(data,w,h,313,127,8,acc,.95); pngText(data,w,h,String(c.status||'online'),334,119,3,[230,235,245,255],.95,12);
+  const title = String(c.meta_title || c.username || 'celvin'); const user = '@' + String(c.username || 'username'); const desc = String(c.meta_description || String(c.bio||'').split('\n')[0] || 'your corner of the internet');
+  pngText(data,w,h,'DISCORD RICH EMBED',104,315,4,[148,163,184,255],.9,30);
+  pngText(data,w,h,title,104,380,11,acc,.95,18);
+  pngText(data,w,h,user,104,458,6,[230,235,245,255],.95,24);
+  pngText(data,w,h,desc,104,520,4,[203,213,225,255],.86,42);
+  const linkCount = Array.isArray(c.links) ? c.links.filter(x=>getLinkUrl(x)).length : 0;
+  pngRect(data,w,h,930,420,160,88,[0,0,0,255],.24,28); pngText(data,w,h,'LINKS',968,444,3,[148,163,184,255],.95,10); pngText(data,w,h,String(linkCount),990,476,5,[255,255,255,255],.95,4);
+  return encodePngRGBA(w,h,data);
+}
+
+
+app.get("/share-card.png", async (req, res) => {
+  const c = await getConfig();
+  res.set("Cache-Control", "public, max-age=300, s-maxage=300");
+  res.type("image/png").send(makeShareCardPng(c));
+});
+
 app.get("/share-card.svg", async (req, res) => {
   const c = await getConfig();
   const title = esc(c.meta_title || c.username || "bio");
