@@ -23,6 +23,34 @@ app.use(express.json({ limit: "400mb" }));
 app.use(express.urlencoded({ extended: true, limit: "400mb" }));
 app.use(session({ secret: process.env.SESSION_SECRET || "celvin-secret-2024", resave: false, saveUninitialized: false, cookie: { maxAge: 86400000 } }));
 
+function setEmbedNoCache(res) {
+  res.set({
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0",
+    "CDN-Cache-Control": "no-store",
+    "Cloudflare-CDN-Cache-Control": "no-store",
+    "Pragma": "no-cache",
+    "Expires": "0",
+    "Surrogate-Control": "no-store"
+  });
+}
+function isEmbedCrawler(req) {
+  return /Discordbot|Twitterbot|facebookexternalhit|Slackbot|TelegramBot|WhatsApp|LinkedInBot|Embedly|bot|crawler|spider/i.test(String(req.headers["user-agent"] || ""));
+}
+function makeEmbedVersion(c) {
+  return crypto.createHash("sha1").update([
+    c.username || "",
+    c.avatar_url || "",
+    c.meta_title || "",
+    c.meta_description || "",
+    c.bio || ""
+  ].join("|")).digest("hex").slice(0, 12);
+}
+app.use((req, res, next) => {
+  if (["/", "/og-avatar.png", "/share-card.png", "/share-card.svg", "/oembed.json"].includes(req.path)) setEmbedNoCache(res);
+  next();
+});
+
+
 const PLATFORMS = {
   discord:   { name: "Discord",     color: "#5865F2", placeholder: "username (z.B. snowtulip)", url: "", clickable: false },
   instagram: { name: "Instagram",   color: "#E1306C", placeholder: "username",        url: "https://instagram.com/{u}" },
@@ -875,6 +903,15 @@ ${renderV6PublicSkin(c)}${customJS?`<script>${customJS}</script>`:""}${v4PublicS
 
 app.get("/", async (req, res) => {
   const c = await getConfig();
+
+  // Discord cached https://celvin.rip/ sehr hart. Für Embed-Crawler leiten wir unsichtbar
+  // auf eine interne Version weiter. User posten weiterhin nur https://celvin.rip/.
+  if (isEmbedCrawler(req) && !req.query.__embed_v) {
+    const v = makeEmbedVersion(c);
+    return res.redirect(302, "/?__embed_v=" + encodeURIComponent(v));
+  }
+
+  setEmbedNoCache(res);
   if (c.show_views) { c.views = (c.views||0)+1; await saveConfig(c); }
   trackEvent(req, "view", { config: c }).catch(()=>{});
   res.send(renderBioPage(c, req));
@@ -2312,7 +2349,7 @@ app.get("/og-avatar.png", async (req, res) => {
   const c = await getConfig();
   const avatar = String(c.avatar_url || "").trim();
   const fallback = publicUrl(req).replace(/\/$/, "") + "/share-card.png";
-  res.set("Cache-Control", "public, max-age=300, s-maxage=300");
+  setEmbedNoCache(res);
 
   if (!avatar) return res.redirect(302, fallback);
 
@@ -2341,7 +2378,7 @@ app.get("/og-avatar.png", async (req, res) => {
 
 app.get("/share-card.png", async (req, res) => {
   const c = await getConfig();
-  res.set("Cache-Control", "public, max-age=300, s-maxage=300");
+  setEmbedNoCache(res);
   res.type("image/png").send(makeShareCardPng(c));
 });
 
