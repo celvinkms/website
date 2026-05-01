@@ -560,7 +560,7 @@ function v4PublicSections(c) {
 function v4PublicScripts(c) {
   return `<script>
 (function(){
-  var enter=document.getElementById('uxEnter'); if(enter){enter.addEventListener('click',function(){enter.classList.add('hidden');setTimeout(function(){enter.remove()},400);});}
+  var enter=document.getElementById('uxEnter'); if(enter){enter.addEventListener('click',function(){document.body.classList.remove('intro-blur');enter.classList.add('hidden');setTimeout(function(){enter.remove()},400);});}
   window.uxCopyLink=function(){navigator.clipboard&&navigator.clipboard.writeText(location.href).catch(function(){});var t=document.getElementById('uxCopyToast');if(t){t.classList.add('show');setTimeout(function(){t.classList.remove('show')},1300)}};
   window.uxNativeShare=function(){if(navigator.share){navigator.share({title:document.title,url:location.href}).catch(function(){});}else{uxCopyLink();}};
   window.uxToggleTheme=function(){document.body.classList.toggle('ux-light-mode');try{localStorage.setItem('uxLight',document.body.classList.contains('ux-light-mode')?'1':'0')}catch(e){}};
@@ -630,9 +630,10 @@ function renderBioPage(c) {
     : c.bg_type === "image" ? `url('${c.bg_image_url}') center/cover no-repeat fixed`
     : c.bg_type === "video" ? "transparent"
     : (c.bg_color||"#0a0a0a");
+  const introBlurActive = c.bg_type === "video" && (c.enter_screen_enabled || c.audio_autoplay);
   const videoBlur = c.bg_type === "video" ? Math.max(3, Math.min(10, Number(c.bg_blur_amount || 0) + 4)) : 0;
   const videoOverlay = c.bg_type === "video" ? Math.max(0.16, Math.min(0.42, Number(c.bg_overlay_opacity || 0.24))) : 0;
-  const bgVideoHtml = c.bg_type === "video" && c.bg_video_url ? `<video data-bg-video autoplay loop muted playsinline preload="auto" fetchpriority="high" disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback" src="${c.bg_video_url}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3;background:#000;transform:scale(1.045) translateZ(0);will-change:auto;opacity:0;transition:opacity .24s linear;filter:blur(${videoBlur}px) brightness(.72) saturate(1.06);"></video><div style="position:fixed;inset:0;background:linear-gradient(180deg, rgba(0,0,0,${Math.min(videoOverlay + 0.08, 0.5)}), rgba(0,0,0,${videoOverlay}));z-index:-2;pointer-events:none;"></div><script>document.addEventListener("DOMContentLoaded",function(){document.querySelectorAll("video[data-bg-video]").forEach(function(v){v.muted=true;v.playsInline=true;v.defaultMuted=true;v.setAttribute("muted","");var show=function(){v.style.opacity="1";};var p=function(){try{v.load();}catch(e){}var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});};v.addEventListener("loadeddata",show,{once:true});v.addEventListener("canplay",function(){show();p();},{once:true});v.addEventListener("playing",show,{once:true});p();document.addEventListener("click",p,{once:true});});});<\/script>` : "";
+  const bgVideoHtml = c.bg_type === "video" && c.bg_video_url ? `<video data-bg-video autoplay loop muted playsinline preload="auto" fetchpriority="high" disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback" src="${c.bg_video_url}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3;background:#000;transform:scale(1.045) translateZ(0);will-change:auto;opacity:0;transition:opacity .24s linear, filter .42s ease;filter:brightness(.72) saturate(1.06);"></video><div style="position:fixed;inset:0;background:linear-gradient(180deg, rgba(0,0,0,${Math.min(videoOverlay + 0.08, 0.5)}), rgba(0,0,0,${videoOverlay}));z-index:-2;pointer-events:none;"></div><script>document.addEventListener("DOMContentLoaded",function(){if(${introBlurActive ? "true" : "false"}) document.body.classList.add("intro-blur");document.querySelectorAll("video[data-bg-video]").forEach(function(v){v.muted=true;v.playsInline=true;v.defaultMuted=true;v.setAttribute("muted","");var show=function(){v.style.opacity="1";};var p=function(){try{v.load();}catch(e){}var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});};v.addEventListener("loadeddata",show,{once:true});v.addEventListener("canplay",function(){show();p();},{once:true});v.addEventListener("playing",show,{once:true});p();document.addEventListener("click",p,{once:true});});});<\/script>` : "";
   const cardBg = c.card_style==="glass" ? "rgba(255,255,255,0.06)" : c.card_style==="light" ? "rgba(255,255,255,0.96)" : "rgba(17,17,17,0.95)";
   const cardBorder = c.card_style==="glass" ? "rgba(255,255,255,0.12)" : c.card_style==="light" ? "rgba(0,0,0,0.08)" : "#1e1e1e";
   const cardBlur = c.card_blur ? "backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);" : "";
@@ -737,6 +738,7 @@ function renderBioPage(c) {
     _aud.addEventListener('pause',function(){_setPlaying(false);});
     ${c.audio_autoplay ? `
     function startExperience(){
+      document.body.classList.remove('intro-blur');
       if(_overlay){_overlay.style.opacity='0';setTimeout(function(){_overlay.style.display='none';},400);}
       _aud.muted=false;
       _aud.play().catch(function(e){console.log('Autoplay blockiert:',e);});
@@ -821,7 +823,7 @@ ${patternCSS}${animBg}
 .link-username{font-size:.9rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .arr{margin-left:auto;font-size:.75rem;color:var(--m);transition:color .2s;flex-shrink:0}
 .link-btn:hover .arr{color:var(--lc,var(--a))}
-body.has-bg-video::after{display:none!important;background:none!important}body.has-bg-video.fx-bg-scanlines,body.has-bg-video.fx-bg-grid-strong,body.has-bg-video.fx-bg-dots-strong{background-image:none!important}.has-bg-video .card{background-image:none!important}
+body.has-bg-video::after{display:none!important;background:none!important}body.has-bg-video.fx-bg-scanlines,body.has-bg-video.fx-bg-grid-strong,body.has-bg-video.fx-bg-dots-strong{background-image:none!important}.has-bg-video .card{background-image:none!important}body.intro-blur video[data-bg-video]{filter:blur(${videoBlur}px) brightness(.72) saturate(1.06)!important}
 ${v4PublicCSS(c)}</style>${customCSS}
 </head><body class="${featureClasses}">
 ${bgVideoHtml}${particles}${glow}${v4PublicTopLayers(c)}
