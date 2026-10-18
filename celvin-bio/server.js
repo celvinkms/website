@@ -2406,7 +2406,10 @@ app.get("/go/:idx", async (req, res) => {
   res.redirect(url);
 });
 
-app.get("/healthz", (req, res) => res.json({ ok: true, service: "bio", time: new Date().toISOString() }));
+app.get("/healthz", (req, res) => {
+  setEmbedNoCache(res);
+  res.json({ ok: true, service: "bio", time: new Date().toISOString() });
+});
 app.get("/robots.txt", async (req, res) => {
   const base = publicUrl(req);
   res.type("text/plain").send(`User-agent: *\nAllow: /\nSitemap: ${base}/sitemap.xml\n`);
