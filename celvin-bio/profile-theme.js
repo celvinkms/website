@@ -106,9 +106,9 @@ async function applyRequestedBassEdit(pool) {
     await client.query('BEGIN');
     const {rows}=await client.query('SELECT id, data FROM bio_config ORDER BY id LIMIT 1 FOR UPDATE');
     const current=rows[0];
-    if(current&&current.data._soundtrack_bass_intro_v1!=='applied'){
-      await client.query('INSERT INTO bio_snapshots(label,data) VALUES($1,$2)',['Vor Future Bass-/Drop-Intro-Edit',current.data]);
-      const update={_soundtrack_bass_intro_v1:'applied',youtube_url:'',audio_url:'/profile/future-too-comfortable-bass-intro-v1.mp3',audio_title:'Future — Too Comfortable',audio_loop:true};
+    if(current&&current.data._soundtrack_bass_intro_v2!=='applied'){
+      await client.query('INSERT INTO bio_snapshots(label,data) VALUES($1,$2)',['Vor stärkerem Future-Overdrive',current.data]);
+      const update={_soundtrack_bass_intro_v2:'applied',youtube_url:'',audio_url:'/profile/future-too-comfortable-bass-intro-v2.mp3',audio_title:'Future — Too Comfortable',audio_loop:true};
       await client.query('UPDATE bio_config SET data = data || $1::jsonb WHERE id = $2',[JSON.stringify(update),current.id]);
     }
     await client.query('COMMIT');
