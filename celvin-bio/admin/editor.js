@@ -6,7 +6,7 @@
     ['design','Design','Farben, Schrift und Kartenstil deiner Seite.'],
     ['entry','Startbildschirm','Eintritt aktivieren, Text und Farben ändern oder ein eigenes Bild hochladen.'],
     ['entry-background','Start-Hintergrund','Transparenz und Unschärfe des Eintritts sowie GIFs und MP4s einstellen.'],
-    ['background','Hintergrund','Bilder, Videos und Hintergrundfarben.'],
+    ['background','Hintergrund','GIFs, MP4s, Bilder und Hintergrundfarben.'],
     ['effects','Musik & Effekte','Audio und visuelle Effekte gezielt einstellen.'],
     ['templates','Vorlagen','Wähle einen Look als Ausgangspunkt. Erst Speichern veröffentlicht ihn.'],
     ['v4studio','Inhaltsblöcke','Zusätzliche Texte, Hinweise, Statistiken und Buttons.','Extras'],
@@ -93,6 +93,41 @@
         mediaStatus.textContent=file.name+' hochgeladen. Änderungen speichern, um zu veröffentlichen.';markDirty();
       }catch(error){mediaStatus.textContent=error.name==='AbortError'?'Upload dauert zu lange. Bitte erneut versuchen.':error.message;}
       finally{clearTimeout(timeout);mediaInput.disabled=false;mediaInput.value='';}
+    });
+    const profileMediaInput=document.getElementById('profile_media_file');
+    const profileMediaStatus=document.getElementById('profile_media_status');
+    function applyProfileMedia(url,kind){
+      document.getElementById('bg_type').value=kind;
+      document.getElementById('bg_use_avatar').checked=false;
+      if(kind==='video'){
+        document.getElementById('bg_video_url').value=url;syncBgVideoPreview(url);
+      }else{
+        document.getElementById('bg_image_url').value=url;document.getElementById('bg_url_text').value=url;
+        const image=document.getElementById('bg_preview');image.src=url;image.style.display='block';
+        document.getElementById('bg_filename').textContent='Bild / GIF gesetzt';
+      }
+      document.getElementById('profile_media_url').value=url;updBg();markDirty();
+    }
+    profileMediaInput.addEventListener('change',async()=>{
+      const file=profileMediaInput.files[0];if(!file)return;
+      if(file.size>25*1024*1024){profileMediaStatus.textContent='Bitte eine Datei unter 25 MB wählen. Größere Videos kannst du unten unter Video hochladen.';return;}
+      profileMediaInput.disabled=true;profileMediaStatus.textContent='Wird hochgeladen …';
+      const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),90000);
+      try{
+        const response=await fetch('/admin/upload-entry-media',{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream'},body:file,signal:controller.signal});
+        const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'Upload fehlgeschlagen.');
+        applyProfileMedia(result.url,result.kind);profileMediaStatus.textContent=file.name+' gesetzt. Änderungen speichern, um zu veröffentlichen.';
+      }catch(error){profileMediaStatus.textContent=error.name==='AbortError'?'Upload dauert zu lange. Bitte erneut versuchen.':error.message;}
+      finally{clearTimeout(timeout);profileMediaInput.disabled=false;profileMediaInput.value='';}
+    });
+    document.getElementById('profile_media_apply').addEventListener('click',()=>{
+      const value=document.getElementById('profile_media_url').value.trim();
+      try{
+        const url=new URL(value,location.origin);
+        if(!['http:','https:'].includes(url.protocol)||!value)throw new Error('invalid');
+        const kind=/\.(mp4|webm|ogg)(?:$|[?#])/i.test(url.href)?'video':/\.(gif|png|jpe?g|webp)(?:$|[?#])/i.test(url.href)?'image':document.getElementById('bg_type').value==='video'?'video':'image';
+        applyProfileMedia(value,kind);profileMediaStatus.textContent='URL übernommen. Änderungen speichern, um zu veröffentlichen.';
+      }catch{profileMediaStatus.textContent='Bitte eine gültige Datei-URL eingeben.';}
     });
     const originalNav = window.navTo;
     window.navTo = function(id) {
