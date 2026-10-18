@@ -69,3 +69,6 @@ input[type=range]{--progress:0%;appearance:none;-webkit-appearance:none;height:2
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.reveal{opacity:1!important;filter:none!important;transform:none!important}.clean-profile .discord-presence{transform:none!important}.film-grain{transform:none}#ashCanvas,#cursorGlow{display:none}.entry-pending .reveal{opacity:0!important}}
 
 .clean-profile.discord-live-enabled .connections:has(.socials>.discord-link:only-child){display:block}.clean-profile.discord-live-enabled .socials .discord-link{display:grid!important}.effects-paused *,.effects-paused *:before,.effects-paused *:after{animation-play-state:paused!important}
+
+/* Minimal chrome: keep sharing at the right and only the small footer mark. */
+.site-chrome{justify-content:flex-end}.site-footer{justify-content:center}
