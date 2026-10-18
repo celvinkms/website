@@ -900,7 +900,7 @@ ${patternCSS}${animBg}
 .arr{margin-left:auto;font-size:.75rem;color:var(--m);transition:color .2s;flex-shrink:0}
 .link-btn:hover .arr{color:var(--lc,var(--a))}
 body.has-bg-video::after{display:none!important;background:none!important}body.has-bg-video.fx-bg-scanlines,body.has-bg-video.fx-bg-grid-strong,body.has-bg-video.fx-bg-dots-strong{background-image:none!important}.has-bg-video .card{background-image:none!important}body.intro-blur video[data-bg-video]{filter:blur(${videoBlur}px) brightness(.72) saturate(1.06)!important}
-${v4PublicCSS(c)}</style><link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-14">${customCSS}${c.profile_theme === "grunge-emo" || youtubeVideoId(c.youtube_url) ? '<link rel="stylesheet" href="/profile/grunge.css?v=studio-2">' : ""}
+${v4PublicCSS(c)}</style><link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-15">${customCSS}${c.profile_theme === "grunge-emo" || youtubeVideoId(c.youtube_url) ? '<link rel="stylesheet" href="/profile/grunge.css?v=studio-2">' : ""}
 </head><body class="${featureClasses} ${c.profile_theme === "grunge-emo" ? "grunge-emo" : ""}">
 ${bgVideoHtml}${particles}${glow}${v4PublicTopLayers(c)}
 <div class="card">
@@ -915,7 +915,7 @@ ${bgVideoHtml}${particles}${glow}${v4PublicTopLayers(c)}
   ${spotify}${v4PublicSections(c)}${youtubePlayer(c)}
 </div>
 ${audioWidget}${views}
-<script src="/profile/discord-presence.js?v=discord-live-14"></script>${renderV6PublicSkin(c)}${customJS?`<script>${customJS}</script>`:""}${v4PublicScripts(c)}${renderV5PublicSuite(c)}
+<script src="/profile/discord-presence.js?v=discord-live-15"></script>${renderV6PublicSkin(c)}${customJS?`<script>${customJS}</script>`:""}${v4PublicScripts(c)}${renderV5PublicSuite(c)}
 </body></html>`;
 }
 
@@ -1563,7 +1563,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
 @media(max-width:1250px){.previewDock{display:none}.main{max-width:none}}@media(max-width:760px){body{display:block}.sidebar{position:relative;width:auto;height:auto;min-height:0;display:grid;grid-template-columns:repeat(2,1fr)}.sf{display:none}.main{padding:1rem}.statGrid{grid-template-columns:repeat(2,1fr)}.adminHero h2{font-size:1.6rem}.featureTools{grid-template-columns:1fr}.badge-editor,.badge-row{grid-template-columns:1fr}}
 
 </style>
-<link rel="stylesheet" href="/admin/assets/editor.css?v=discord-live-14"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-14">
+<link rel="stylesheet" href="/admin/assets/editor.css?v=discord-live-15"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-15">
 </head><body class="admin-editor">
 <nav class="sidebar" aria-label="Admin-Bereiche">
   <div class="logo">cel<span>vin</span>.rip</div>
@@ -2329,7 +2329,7 @@ document.addEventListener("DOMContentLoaded",function(){
   try{renderFeatures();}catch(e){console.error(e);}
   try{bindAdminStudio();}catch(e){console.error(e);}
 });
-</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=discord-live-14"></script>
+</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=discord-live-15"></script>
 </body></html>`);
 });
 
