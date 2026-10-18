@@ -11,7 +11,7 @@ const zlib = require("zlib");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { applyRequestedTheme, applyRequestedSharpBackground, applyRequestedPinterestBackground, youtubeVideoId, youtubePlayer } = require("./profile-theme");
+const { applyRequestedTheme, applyRequestedSharpBackground, applyRequestedPinterestBackground, applyRequestedSong, youtubeVideoId, youtubePlayer } = require("./profile-theme");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -141,6 +141,7 @@ async function initDB() {
   await applyRequestedTheme(pool);
   await applyRequestedSharpBackground(pool);
   await applyRequestedPinterestBackground(pool);
+  await applyRequestedSong(pool);
 }
 async function getConfig() {
   const { rows } = await pool.query("SELECT data FROM bio_config LIMIT 1");
