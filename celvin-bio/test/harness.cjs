@@ -8,8 +8,13 @@ function createHarness() {
   const state = { config: { username: 'celvin', bio: 'Gaming, design & late night ideas.', password: 'hash:old-password' }, fail: false, writes: 0 };
   const app = { use() {}, get(url, ...handlers) { routes.set('GET '+url, handlers); }, post(url, ...handlers) { routes.set('POST '+url, handlers); } };
   const express = Object.assign(() => app, Object.fromEntries(['static','json','urlencoded','raw'].map(key => [key, () => () => {}])));
-  class Pool {
+  class Pool extends require("node:events").EventEmitter {
+    constructor(){super();state.pool=this;}
     async query(sql, values) {
+      if (sql.includes("jsonb_set(data, '{views}'")) {
+        if(state.failViews)throw new Error('Simulated counter connection loss');
+        state.config.views=(Number(state.config.views)||0)+1;state.writes++;return {rows:[]};
+      }
       if (state.fail) throw Object.assign(new Error('Simulated database failure'), { code: 'TEST' });
       if (sql.startsWith('SELECT data FROM bio_config')) return { rows: [{ data: structuredClone(state.config) }] };
       if (sql.startsWith('UPDATE bio_config SET data = jsonb_set')) { state.config.password=JSON.parse(values[0]); state.writes++; }
