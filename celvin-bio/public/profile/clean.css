@@ -6,10 +6,11 @@
  --space:8px; --glass:rgba(15,14,18,.58); --grain-opacity:.045;
  --fog-opacity:.16; --moon-opacity:.6; --scene-media-opacity:.3;
  --beat-zoom:.022; --beat-light:.14; /* Maximum audio-driven zoom / brightness. */
- --display-font:'Pirata One',Georgia,serif; --subtitle-font:'Cormorant Garamond',Georgia,serif; --body-font:'Manrope',system-ui,sans-serif;
+ --title-font:'UnifrakturCook','Pirata One',Georgia,serif; --display-font:'Pirata One',Georgia,serif; --subtitle-font:'Cormorant Garamond',Georgia,serif; --body-font:'Manrope',system-ui,sans-serif;
 }
 @font-face{font-family:'Manrope';font-style:normal;font-weight:400 700;font-display:swap;src:url('/profile/fonts/manrope-latin.woff2') format('woff2')}
 @font-face{font-family:'Pirata One';font-style:normal;font-weight:400;font-display:swap;src:url('/profile/fonts/pirata-one-latin.woff2') format('woff2')}
+@font-face{font-family:'UnifrakturCook';font-style:normal;font-weight:700;font-display:swap;src:url('/profile/fonts/unifraktur-cook-latin.woff2') format('woff2')}
 @font-face{font-family:'Cormorant Garamond';font-style:normal;font-weight:400 600;font-display:swap;src:url('/profile/fonts/cormorant-garamond-latin.woff2') format('woff2')}
 @font-face{font-family:'Cormorant Garamond';font-style:italic;font-weight:400 600;font-display:swap;src:url('/profile/fonts/cormorant-garamond-latin-italic.woff2') format('woff2')}
 *{box-sizing:border-box}html{color-scheme:dark;background:var(--background)}
@@ -36,7 +37,7 @@ button,input,a{-webkit-tap-highlight-color:transparent}button,input{font:inherit
 .identity-card{width:min(100%,var(--card-width));text-align:center;perspective:900px}.identity{display:flex;align-items:center;flex-direction:column;gap:24px}.identity-copy{width:100%}
 .portrait{position:relative;width:88px;height:88px;flex:none;border-radius:50%;padding:4px;background:linear-gradient(135deg,#ffffff32,#ffffff06);box-shadow:0 0 45px #0005}
 .portrait:before{content:'';position:absolute;inset:-6px;border:1px solid rgba(var(--accent-rgb),.18);border-radius:50%;animation:avatar-breathe 5.5s ease-in-out infinite;pointer-events:none}.portrait:after{content:'';position:absolute;inset:2px;border:1px solid #ffffff1f;border-radius:50%;pointer-events:none}.portrait img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;filter:saturate(.6)}.portrait>span{display:grid;place-items:center;width:100%;height:100%;font-size:32px}
-.name-line h1{position:relative;display:inline-block;font-family:var(--display-font);font-size:clamp(76px,21vw,104px);font-weight:400;line-height:1.08;letter-spacing:-.015em;margin:0;overflow-wrap:anywhere;text-wrap:balance;animation:none;text-shadow:0 2px 20px #00000030}
+.name-line h1{position:relative;display:inline-block;font-family:var(--title-font);font-size:clamp(78px,22vw,108px);font-weight:700;line-height:1.12;letter-spacing:.005em;margin:0;overflow-wrap:anywhere;text-wrap:balance;animation:none;text-shadow:0 2px 22px #00000080}
 .name-line h1:before,.name-line h1:after{content:attr(data-title);position:absolute;inset:0;opacity:0;pointer-events:none}.name-line h1:before{color:#ae687d;clip-path:inset(21% 0 52%)}.name-line h1:after{color:#9895b8;clip-path:inset(60% 0 15%)}
 .profile-subline{min-height:24px;margin:14px 0 0;color:#b8b0a9;font-family:var(--subtitle-font);font-size:18px;font-style:italic;letter-spacing:.04em;overflow-wrap:anywhere}.typewriter.typing:after{content:'';display:inline-block;width:1px;height:10px;margin-left:4px;background:#9f7c87;vertical-align:-1px;animation:caret .9s steps(1) infinite}
 .badges{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px}.badges:empty{display:none}.badges .badge{padding:0!important;border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;color:#8c8792!important;font:8px/1.5 var(--body-font)!important;letter-spacing:.2em;text-transform:uppercase;display:inline-flex;align-items:center;gap:5px}.badge img,.badge svg{width:11px;height:11px}
@@ -81,5 +82,5 @@ input[type=range]{--progress:0%;appearance:none;-webkit-appearance:none;height:2
 /* Custom backgrounds: show the selected source without the default moon, fog, grain or colour treatment. */
 .native-background .ambient>img,.native-background .ambient>video{opacity:1;filter:blur(var(--scene-blur,0px))}.native-background .ambient:after{background:rgba(0,0,0,var(--scene-dim,.3))}
 
-/* Blackletter title and entry; keep the small UI readable and understated. */
+/* Bold Fraktur title, Pirata entry; keep the small UI readable and understated. */
 .name-line h1{color:#f0eeee}.name-line h1:before,.name-line h1:after{display:none}.entry-screen span{font-style:normal;letter-spacing:.025em;font-size:calc(var(--entry-size,22px)*1.15)}.clean-profile .discord-presence{font-family:var(--body-font)}.clean-profile .discord-presence-identity strong{font-weight:500;letter-spacing:.025em}.song-copy strong{font-weight:400;letter-spacing:.015em}.profile-subline .typewriter.typing:after{height:13px;background:#b6a18d}.badges .badge{letter-spacing:.22em}

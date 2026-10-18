@@ -5,6 +5,8 @@ Locally served Google Fonts Latin webfont subsets.
 
 Both are distributed under the SIL Open Font License; original notices are included alongside the fonts. WOFF2 files are served without changes.
 
-Pirata One is used for the Blackletter title and entry text. Manrope is used for the small UI labels.
+UnifrakturCook Bold is used for the title. Pirata One is used for the entry text. Manrope is used for the small UI labels.
+
+UnifrakturCook Latin WOFF2 is the unmodified webfont delivered by Google Fonts (https://fonts.google.com/specimen/UnifrakturCook). License and copyright notice: UnifrakturCook-OFL.txt.
 
 Cormorant Garamond normal/italic Latin WOFF2, weights 400–600: locally hosted from Google Fonts. License: CormorantGaramond-OFL.txt. Used for the italic subline.
