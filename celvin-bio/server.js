@@ -1,4 +1,5 @@
 const express = require("express");
+const {renderCleanProfile}=require("./clean-profile");
 const session = require("express-session");
 const bcrypt = require("bcrypt");
 const { Pool } = require("pg");
@@ -807,6 +808,7 @@ function renderBioPage(c, req) {
   const embedDesc = (metaDesc || `${linkCount} links • ${badgeCount} badges`).slice(0, 180);
   const siteName = (c.username ? `@${c.username}` : metaTitle) + " • bio";
 
+  if(c.profile_theme === "grunge-emo") return renderCleanProfile(c,{links,badges});
   return `<!DOCTYPE html>
 <html lang="de"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -887,7 +889,7 @@ ${patternCSS}${animBg}
 .arr{margin-left:auto;font-size:.75rem;color:var(--m);transition:color .2s;flex-shrink:0}
 .link-btn:hover .arr{color:var(--lc,var(--a))}
 body.has-bg-video::after{display:none!important;background:none!important}body.has-bg-video.fx-bg-scanlines,body.has-bg-video.fx-bg-grid-strong,body.has-bg-video.fx-bg-dots-strong{background-image:none!important}.has-bg-video .card{background-image:none!important}body.intro-blur video[data-bg-video]{filter:blur(${videoBlur}px) brightness(.72) saturate(1.06)!important}
-${v4PublicCSS(c)}</style>${customCSS}${c.profile_theme === "grunge-emo" || youtubeVideoId(c.youtube_url) ? '<link rel="stylesheet" href="/profile/grunge.css?v=modern-2026">' : ""}
+${v4PublicCSS(c)}</style>${customCSS}${c.profile_theme === "grunge-emo" || youtubeVideoId(c.youtube_url) ? '<link rel="stylesheet" href="/profile/grunge.css?v=studio-2">' : ""}
 </head><body class="${featureClasses} ${c.profile_theme === "grunge-emo" ? "grunge-emo" : ""}">
 ${bgVideoHtml}${particles}${glow}${v4PublicTopLayers(c)}
 <div class="card">
@@ -1505,7 +1507,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
 @media(max-width:1250px){.previewDock{display:none}.main{max-width:none}}@media(max-width:760px){body{display:block}.sidebar{position:relative;width:auto;height:auto;min-height:0;display:grid;grid-template-columns:repeat(2,1fr)}.sf{display:none}.main{padding:1rem}.statGrid{grid-template-columns:repeat(2,1fr)}.adminHero h2{font-size:1.6rem}.featureTools{grid-template-columns:1fr}.badge-editor,.badge-row{grid-template-columns:1fr}}
 
 </style>
-<link rel="stylesheet" href="/admin/assets/editor.css?v=modern-2026">
+<link rel="stylesheet" href="/admin/assets/editor.css?v=studio-2">
 </head><body class="admin-editor">
 <nav class="sidebar" aria-label="Admin-Bereiche">
   <div class="logo">cel<span>vin</span>.rip</div>
@@ -1596,7 +1598,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
   <!-- DESIGN -->
   <div class="sec" id="sec-design">
     <p class="st" style="margin-top:0">Profil-Look</p>
-    <div class="fi"><label for="profile_theme">Gestaltung</label><select id="profile_theme"><option value="" ${c.profile_theme !== "grunge-emo" ? "selected" : ""}>Standard</option><option value="grunge-emo" ${c.profile_theme === "grunge-emo" ? "selected" : ""}>Grunge / Emo — Dark</option></select><p class="td">Dunkle Papiertextur, verwaschene Farben und ein gerahmtes Profilbild.</p></div>
+    <div class="fi"><label for="profile_theme">Gestaltung</label><select id="profile_theme"><option value="" ${c.profile_theme !== "grunge-emo" ? "selected" : ""}>Standard</option><option value="grunge-emo" ${c.profile_theme === "grunge-emo" ? "selected" : ""}>Minimal / Dark</option></select><p class="td">Reduziertes Profil mit kompakten Socials, Portrait und aufklappbarem Soundtrack.</p></div>
     <p class="st">Farben & Schrift</p>
     <div class="r2">
       <div class="fi"><label>Accent-Farbe</label><div class="cf"><div class="cs"><input type="color" id="accent" value="${c.accent||"#c8ff00"}" oninput="syncH('accent')"></div><input type="text" id="accent_h" value="${c.accent||"#c8ff00"}" oninput="document.getElementById('accent').value=this.value"></div></div>
@@ -2225,7 +2227,7 @@ document.addEventListener("DOMContentLoaded",function(){
   try{renderFeatures();}catch(e){console.error(e);}
   try{bindAdminStudio();}catch(e){console.error(e);}
 });
-</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=modern-2026"></script>
+</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=studio-2"></script>
 </body></html>`);
 });
 

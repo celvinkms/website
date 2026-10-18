@@ -42,6 +42,29 @@
     sections.forEach(([id,label])=>{const option=document.createElement('option');option.value=id;option.textContent=label;mobileNav.append(option);});
     document.querySelector('.editor-topline').after(mobileNav);
     mobileNav.addEventListener('change',()=>navTo(mobileNav.value));
+    document.body.classList.add('studio-v2');
+    const intro=document.querySelector('.editor-intro');
+    intro.querySelector('.eyebrow').textContent='PROFILE EDITOR';
+    intro.querySelector('h2').textContent='Dein Profil.';
+    intro.querySelector('p').textContent='Alles, was dich ausmacht. An einem Ort.';
+    const profile=document.getElementById('sec-profile');
+    const layout=document.createElement('div');layout.className='profile-layout';
+    let panel=null, index=0;
+    [...profile.children].forEach(child=>{
+      if(child.classList.contains('editor-section-note'))return;
+      if(child.classList.contains('st')){
+        index++;
+        panel=document.createElement(index>2?'details':'section');panel.className='studio-panel';
+        const title=document.createElement(index>2?'summary':'h2');title.textContent=child.textContent;
+        panel.append(title);layout.append(panel);child.remove();
+      }else if(panel)panel.append(child);
+    });profile.append(layout);
+    const note=profile.querySelector('.editor-section-note');if(note)note.remove();
+    const banner=document.createElement('div');banner.className='studio-profile-bar';
+    const bannerImage=document.createElement('img');bannerImage.alt='';bannerImage.src=document.getElementById('avatar_url').value;
+    const bannerText=document.createElement('div');const bannerTitle=document.createElement('strong');bannerTitle.textContent='Deine öffentliche Seite';
+    const bannerLink=document.createElement('a');bannerLink.href='/';bannerLink.target='_blank';bannerLink.rel='noopener';bannerLink.textContent='celvin.rip ↗';bannerText.append(bannerTitle,bannerLink);
+    const bannerNote=document.createElement('span');bannerNote.textContent='Änderungen werden mit Speichern veröffentlicht.';banner.append(bannerImage,bannerText,bannerNote);intro.after(banner);
     const originalNav = window.navTo;
     window.navTo = function(id) {
       if (!document.getElementById('sec-'+id)) return;
