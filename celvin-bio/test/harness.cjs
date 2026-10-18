@@ -33,6 +33,10 @@ function createHarness() {
       if(name==='express')return express;
       if(name==='express-session')return () => () => {};
       if(name==='pg')return { Pool };
+      if(name==='./discord-presence'){
+        const presence=serverRequire(name);
+        return {...presence,createPresenceService:()=>presence.createPresenceService({fetchImpl:async()=>{state.presenceRequests=(state.presenceRequests||0)+1;return state.presenceUnavailable?{ok:false,status:404}:{ok:true,status:200,json:async()=>state.presencePayload||{success:false}};}})};
+      }
       if(name==='bcrypt')return { hash: async value => 'hash:'+value, compare: async (value,hash) => hash==='hash:'+value };
       return serverRequire(name);
     },
