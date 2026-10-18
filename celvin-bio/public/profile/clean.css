@@ -72,3 +72,6 @@ input[type=range]{--progress:0%;appearance:none;-webkit-appearance:none;height:2
 
 /* Minimal chrome: keep sharing at the right and only the small footer mark. */
 .site-chrome{justify-content:flex-end}.site-footer{justify-content:center}
+
+/* Custom backgrounds: show the selected source without the default moon, fog, grain or colour treatment. */
+.native-background .ambient>img,.native-background .ambient>video{opacity:1;filter:blur(var(--scene-blur,0px))}.native-background .ambient:after{background:rgba(0,0,0,var(--scene-dim,.3))}
