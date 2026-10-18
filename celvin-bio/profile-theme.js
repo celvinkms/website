@@ -47,6 +47,25 @@ async function applyRequestedSharpBackground(pool) {
   } finally {client.release();}
 }
 
+// Use the downloaded, user-selected pin once; preserve subsequent Admin edits.
+async function applyRequestedPinterestBackground(pool) {
+  const client=await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const {rows}=await client.query('SELECT id, data FROM bio_config ORDER BY id LIMIT 1 FOR UPDATE');
+    const current=rows[0];
+    if(current&&current.data._pinterest_background_1111685489282313182!=='applied'){
+      await client.query('INSERT INTO bio_snapshots(label,data) VALUES($1,$2)',['Vor Pinterest-Hintergrund',current.data]);
+      const update={_pinterest_background_1111685489282313182:'applied',bg_type:'video',bg_video_url:'/profile/pinterest-background.mp4',bg_use_avatar:false,bg_blur_amount:0,entry_bg_type:'inherit',entry_bg_blur:0};
+      await client.query('UPDATE bio_config SET data = data || $1::jsonb WHERE id = $2',[JSON.stringify(update),current.id]);
+    }
+    await client.query('COMMIT');
+  } catch(error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {client.release();}
+}
+
 function youtubeVideoId(value) {
   try {
     const url = new URL(value);
@@ -69,4 +88,4 @@ function youtubePlayer(config) {
   return `<section class="profile-music" aria-label="Profil-Song"><div class="profile-music-label"><span>${title}</span><span>♫</span></div><iframe title="Profil-Song auf YouTube" src="https://www.youtube-nocookie.com/embed/${id}?playsinline=1&autoplay=0&rel=0${repeat}" width="100%" height="240" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe><a href="https://www.youtube.com/watch?v=${id}" target="_blank" rel="noopener noreferrer">Auf YouTube öffnen ↗</a></section>`;
 }
 
-module.exports = { GRUNGE_PRESET, applyRequestedTheme, applyRequestedSharpBackground, youtubeVideoId, youtubePlayer };
+module.exports = { GRUNGE_PRESET, applyRequestedTheme, applyRequestedSharpBackground, applyRequestedPinterestBackground, youtubeVideoId, youtubePlayer };
