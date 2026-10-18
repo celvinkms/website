@@ -2,6 +2,24 @@
 
 ## Admin-Editor
 
+### Grunge-/Emo-Profil
+
+Unter **Design → Gestaltung** lässt sich der Look `Grunge / Emo — Dark` auswählen
+oder abschalten. Das mitgelieferte Foto liegt unter `/profile/grunge-avatar.jpg`;
+unter **Profil** kann weiterhin ein anderes Bild eingestellt werden.
+Unter **Musik & Effekte → YouTube-Link** kann ein YouTube-Song eingetragen oder
+entfernt werden. Der sichtbare Player startet durch einen Klick auf Play und hat
+Vorrang vor einer Audio-Datei. Für das gewünschte Setup ist
+`whatsaheart — lovesick` vorbelegt. Es wird keine Audiodatei von YouTube kopiert.
+
+Beim ersten Start dieser Version sichert `applyRequestedTheme` die bisherigen
+Einstellungen als Snapshot **Vor Grunge-/Emo-Gestaltung** und setzt das ausdrücklich
+gewünschte Bild, Lied und Design. Benutzername, Bio, Links und Passwort bleiben
+erhalten. Die Einrichtung läuft in einer Transaktion und wird anhand des Markers
+`_grunge_setup_v1` bei späteren Starts übersprungen, damit Admin-Änderungen erhalten
+bleiben. Das neue Modul `profile-theme.js` und der Ordner `public/` müssen mit
+bereitgestellt werden.
+
 Unter `/admin/dashboard` stehen Profil, Links, Design und zusätzliche Module in
 getrennten Bereichen. Die Suche filtert die Navigation; Enter öffnet den ersten
 Treffer. Strg/Cmd+S speichert das Profil, Strg/Cmd+K öffnet die Befehlssuche.
