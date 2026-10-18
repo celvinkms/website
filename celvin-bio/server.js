@@ -7,6 +7,7 @@ const zlib = require("zlib");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { applyRequestedTheme, youtubeVideoId, youtubePlayer } = require("./profile-theme");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,6 +21,7 @@ let bgVideoCacheKey = "";
 let bgVideoCachePromise = null;
 
 app.use("/admin/assets", express.static(path.join(__dirname, "admin")));
+app.use("/profile", express.static(path.join(__dirname, "public", "profile")));
 app.use(express.json({ limit: "400mb" }));
 app.use(express.urlencoded({ extended: true, limit: "400mb" }));
 app.use(session({ secret: process.env.SESSION_SECRET || "celvin-secret-2024", resave: false, saveUninitialized: false, cookie: { maxAge: 86400000 } }));
@@ -124,6 +126,7 @@ async function initDB() {
     const d = { ...DEFAULT_CONFIG, password: await bcrypt.hash("admin123", 10) };
     await pool.query("INSERT INTO bio_config (data) VALUES ($1)", [d]);
   }
+  await applyRequestedTheme(pool);
 }
 async function getConfig() {
   const { rows } = await pool.query("SELECT data FROM bio_config LIMIT 1");
@@ -701,7 +704,7 @@ function renderBioPage(c, req) {
   }).join("");
 
   const spotify = c.spotify_url ? `<div style="margin-top:1rem"><iframe src="${c.spotify_url.replace("open.spotify.com/track","open.spotify.com/embed/track").replace("open.spotify.com/playlist","open.spotify.com/embed/playlist")}" width="100%" height="80" frameborder="0" allow="encrypted-media" style="border-radius:12px;"></iframe></div>` : "";
-  const audioWidget = c.audio_url ? `
+  const audioWidget = c.audio_url && !youtubeVideoId(c.youtube_url) ? `
     ${c.audio_autoplay ? `
     <div id="click-to-enter" class="audio-enter">
       <div class="audio-enter-card">
@@ -884,8 +887,8 @@ ${patternCSS}${animBg}
 .arr{margin-left:auto;font-size:.75rem;color:var(--m);transition:color .2s;flex-shrink:0}
 .link-btn:hover .arr{color:var(--lc,var(--a))}
 body.has-bg-video::after{display:none!important;background:none!important}body.has-bg-video.fx-bg-scanlines,body.has-bg-video.fx-bg-grid-strong,body.has-bg-video.fx-bg-dots-strong{background-image:none!important}.has-bg-video .card{background-image:none!important}body.intro-blur video[data-bg-video]{filter:blur(${videoBlur}px) brightness(.72) saturate(1.06)!important}
-${v4PublicCSS(c)}</style>${customCSS}
-</head><body class="${featureClasses}">
+${v4PublicCSS(c)}</style>${customCSS}${c.profile_theme === "grunge-emo" || youtubeVideoId(c.youtube_url) ? '<link rel="stylesheet" href="/profile/grunge.css">' : ""}
+</head><body class="${featureClasses} ${c.profile_theme === "grunge-emo" ? "grunge-emo" : ""}">
 ${bgVideoHtml}${particles}${glow}${v4PublicTopLayers(c)}
 <div class="card">
   <div class="av"><div class="avi">${avatar}<div class="st"></div></div></div>
@@ -895,7 +898,7 @@ ${bgVideoHtml}${particles}${glow}${v4PublicTopLayers(c)}
   <p class="bio">${bioLines}</p>
   <div class="dv"></div>
   <div class="lks">${links}</div>
-  ${spotify}${v4PublicSections(c)}
+  ${spotify}${v4PublicSections(c)}${youtubePlayer(c)}
 </div>
 ${audioWidget}${views}
 ${renderV6PublicSkin(c)}${customJS?`<script>${customJS}</script>`:""}${v4PublicScripts(c)}${renderV5PublicSuite(c)}
@@ -1592,7 +1595,9 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
 
   <!-- DESIGN -->
   <div class="sec" id="sec-design">
-    <p class="st" style="margin-top:0">Farben & Schrift</p>
+    <p class="st" style="margin-top:0">Profil-Look</p>
+    <div class="fi"><label for="profile_theme">Gestaltung</label><select id="profile_theme"><option value="" ${c.profile_theme !== "grunge-emo" ? "selected" : ""}>Standard</option><option value="grunge-emo" ${c.profile_theme === "grunge-emo" ? "selected" : ""}>Grunge / Emo — Dark</option></select><p class="td">Dunkle Papiertextur, verwaschene Farben und ein gerahmtes Profilbild.</p></div>
+    <p class="st">Farben & Schrift</p>
     <div class="r2">
       <div class="fi"><label>Accent-Farbe</label><div class="cf"><div class="cs"><input type="color" id="accent" value="${c.accent||"#c8ff00"}" oninput="syncH('accent')"></div><input type="text" id="accent_h" value="${c.accent||"#c8ff00"}" oninput="document.getElementById('accent').value=this.value"></div></div>
       <div class="fi"><label>Textfarbe</label><div class="cf"><div class="cs"><input type="color" id="text_color" value="${c.text_color||"#e8e8e8"}" oninput="syncH('text_color')"></div><input type="text" id="text_color_h" value="${c.text_color||"#e8e8e8"}" oninput="document.getElementById('text_color').value=this.value"></div></div>
@@ -1718,7 +1723,9 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
     <div class="tr"><div><div class="tl">Partikel-Hintergrund</div><div class="td">Schwebende Punkte im Hintergrund</div></div><label class="sw"><input type="checkbox" id="show_particles" ${c.show_particles?"checked":""}><span class="sl"></span></label></div>
     <div class="tr"><div><div class="tl">Cursor Glow</div><div class="td">Leuchtendes Licht folgt dem Mauszeiger</div></div><label class="sw"><input type="checkbox" id="cursor_glow" ${c.cursor_glow?"checked":""}><span class="sl"></span></label></div>
     <div class="tr"><div><div class="tl">Besucherzähler</div><div class="td">Zeigt Seitenaufrufe unten an</div></div><label class="sw"><input type="checkbox" id="show_views" ${c.show_views?"checked":""}><span class="sl"></span></label></div>
-    <p class="st">🎵 Hintergrund-Musik</p>
+    <p class="st">YouTube-Song</p>
+    <div class="fi"><label for="youtube_url">YouTube-Link</label><input type="url" id="youtube_url" value="${esc(c.youtube_url || "")}" placeholder="https://www.youtube.com/watch?v=…"><p class="td">Der Song erscheint als YouTube-Player auf deinem Profil. Zum Abspielen auf Play klicken. Ein YouTube-Song hat Vorrang vor einer Audio-Datei.</p></div>
+    <p class="st">🎵 Audio-Datei (Alternative)</p>
     <div class="fi"><label>Audio URL (mp3, ogg, wav)</label>
       <input type="file" id="audio_file" accept=".mp3,.ogg,.wav,audio/*" style="display:none" onchange="handleAudioUpload(this)">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
@@ -2147,6 +2154,8 @@ async function save(){
     custom_head:document.getElementById("custom_head").value,
     custom_js:document.getElementById("custom_js").value,
     audio_url:document.getElementById("audio_url").value,
+    youtube_url:document.getElementById("youtube_url").value,
+    profile_theme:document.getElementById("profile_theme").value,
     audio_autoplay:document.getElementById("audio_autoplay").checked,
     audio_loop:document.getElementById("audio_loop").checked,
     audio_volume:parseFloat(document.getElementById("audio_volume").value||0.5),
@@ -2230,6 +2239,14 @@ app.post("/admin/save", requireAdminApi, async (req, res) => {
     const current = await getConfig();
     // Credentials are handled exclusively by /admin/password, never profile save.
     const { password, newPassword, confirmPassword, currentPassword, ...fields } = req.body;
+    if (fields.youtube_url !== undefined) {
+      const id = youtubeVideoId(fields.youtube_url);
+      if (fields.youtube_url && !id) return res.status(400).json({ ok: false, error: "Bitte einen gültigen YouTube-Video-Link eingeben." });
+      fields.youtube_url = id ? "https://www.youtube.com/watch?v=" + id : "";
+    }
+    if (fields.profile_theme !== undefined && !["", "grunge-emo"].includes(fields.profile_theme)) {
+      return res.status(400).json({ ok: false, error: "Unbekannte Profil-Gestaltung." });
+    }
     if (typeof fields.bg_video_url === "string" && fields.bg_video_url.startsWith("data:video")) {
       fields.bg_video_url = current.bg_video_url && current.bg_video_url.startsWith("/asset/bg-video") ? current.bg_video_url : "";
     }

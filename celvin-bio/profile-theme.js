@@ -1,0 +1,54 @@
+const GRUNGE_PRESET = {
+  _grunge_setup_v1: 'applied', profile_theme: 'grunge-emo',
+  avatar_type: 'image', avatar_url: '/profile/grunge-avatar.jpg', avatar_border: 'square', avatar_glow: false,
+  youtube_url: 'https://www.youtube.com/watch?v=8V8s9bg5jok',
+  audio_url: '', audio_title: 'whatsaheart — lovesick', spotify_url: '', audio_autoplay: false, audio_loop: true,
+  accent: '#9d6678', text_color: '#ded8d7', font: 'Space Grotesk',
+  bg_type: 'gradient', bg_color: '#09090b', bg_gradient_from: '#09090b', bg_gradient_to: '#21151b', bg_gradient_angle: '155',
+  bg_image_url: '', bg_video_url: '', bg_pattern: 'none', bg_animated: false,
+  card_style: 'dark', card_blur: false, card_shadow: true, link_style: 'minimal',
+  show_particles: false, cursor_glow: false, feature_flags: {},
+  v6_visual_off: true, v5_enabled: false, enter_screen_enabled: false
+};
+
+// Apply the explicitly requested setup once. Subsequent admin edits survive restarts.
+async function applyRequestedTheme(pool) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query('SELECT id, data FROM bio_config ORDER BY id LIMIT 1 FOR UPDATE');
+    const current = rows[0];
+    if (current && current.data._grunge_setup_v1 !== 'applied') {
+      await client.query('INSERT INTO bio_snapshots(label,data) VALUES($1,$2)', ['Vor Grunge-/Emo-Gestaltung', current.data]);
+      await client.query('UPDATE bio_config SET data = data || $1::jsonb WHERE id = $2', [JSON.stringify(GRUNGE_PRESET), current.id]);
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
+}
+
+function youtubeVideoId(value) {
+  try {
+    const url = new URL(value);
+    if (!['https:', 'http:'].includes(url.protocol)) return '';
+    const host = url.hostname.toLowerCase();
+    let id = '';
+    if (host === 'youtu.be') id = url.pathname.slice(1);
+    else if (['youtube.com','www.youtube.com','m.youtube.com','www.youtube-nocookie.com','youtube-nocookie.com'].includes(host)) {
+      id = url.pathname === '/watch' ? url.searchParams.get('v') : /^\/(?:embed|shorts)\//.test(url.pathname) ? url.pathname.split('/')[2] : '';
+    }
+    return /^[a-zA-Z0-9_-]{11}$/.test(id || '') ? id : '';
+  } catch { return ''; }
+}
+
+function youtubePlayer(config) {
+  const id = youtubeVideoId(config.youtube_url);
+  if (!id) return '';
+  const repeat = config.audio_loop !== false ? '&loop=1&playlist='+id : '';
+  const title = String(config.audio_title || 'ON REPEAT').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  return `<section class="profile-music" aria-label="Profil-Song"><div class="profile-music-label"><span>${title}</span><span>♫</span></div><iframe title="Profil-Song auf YouTube" src="https://www.youtube-nocookie.com/embed/${id}?playsinline=1&autoplay=0&rel=0${repeat}" width="100%" height="240" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe><a href="https://www.youtube.com/watch?v=${id}" target="_blank" rel="noopener noreferrer">Auf YouTube öffnen ↗</a></section>`;
+}
+
+module.exports = { GRUNGE_PRESET, applyRequestedTheme, youtubeVideoId, youtubePlayer };

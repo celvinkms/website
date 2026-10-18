@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const serverRequire = require('node:module').createRequire(path.join(__dirname,'../server.js'));
 
 function createHarness() {
   const routes = new Map();
@@ -24,7 +25,7 @@ function createHarness() {
       if(name==='express-session')return () => () => {};
       if(name==='pg')return { Pool };
       if(name==='bcrypt')return { hash: async value => 'hash:'+value, compare: async (value,hash) => hash==='hash:'+value };
-      return require(name);
+      return serverRequire(name);
     },
     __dirname:path.join(__dirname,'..'), console:{ ...console, error(){} }, process, Buffer, URL, setTimeout, clearTimeout
   });
