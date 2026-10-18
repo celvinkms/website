@@ -887,7 +887,7 @@ ${patternCSS}${animBg}
 .arr{margin-left:auto;font-size:.75rem;color:var(--m);transition:color .2s;flex-shrink:0}
 .link-btn:hover .arr{color:var(--lc,var(--a))}
 body.has-bg-video::after{display:none!important;background:none!important}body.has-bg-video.fx-bg-scanlines,body.has-bg-video.fx-bg-grid-strong,body.has-bg-video.fx-bg-dots-strong{background-image:none!important}.has-bg-video .card{background-image:none!important}body.intro-blur video[data-bg-video]{filter:blur(${videoBlur}px) brightness(.72) saturate(1.06)!important}
-${v4PublicCSS(c)}</style>${customCSS}${c.profile_theme === "grunge-emo" || youtubeVideoId(c.youtube_url) ? '<link rel="stylesheet" href="/profile/grunge.css">' : ""}
+${v4PublicCSS(c)}</style>${customCSS}${c.profile_theme === "grunge-emo" || youtubeVideoId(c.youtube_url) ? '<link rel="stylesheet" href="/profile/grunge.css?v=modern-2026">' : ""}
 </head><body class="${featureClasses} ${c.profile_theme === "grunge-emo" ? "grunge-emo" : ""}">
 ${bgVideoHtml}${particles}${glow}${v4PublicTopLayers(c)}
 <div class="card">
@@ -1505,7 +1505,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
 @media(max-width:1250px){.previewDock{display:none}.main{max-width:none}}@media(max-width:760px){body{display:block}.sidebar{position:relative;width:auto;height:auto;min-height:0;display:grid;grid-template-columns:repeat(2,1fr)}.sf{display:none}.main{padding:1rem}.statGrid{grid-template-columns:repeat(2,1fr)}.adminHero h2{font-size:1.6rem}.featureTools{grid-template-columns:1fr}.badge-editor,.badge-row{grid-template-columns:1fr}}
 
 </style>
-<link rel="stylesheet" href="/admin/assets/editor.css">
+<link rel="stylesheet" href="/admin/assets/editor.css?v=modern-2026">
 </head><body class="admin-editor">
 <nav class="sidebar" aria-label="Admin-Bereiche">
   <div class="logo">cel<span>vin</span>.rip</div>
@@ -1525,7 +1525,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
 <main class="main">
 
   <div class="editor-topline"><span>Workspace / <strong>Dein Profil</strong></span><a href="/" target="_blank" rel="noopener">celvin.rip ↗</a></div>
-  <section class="editor-intro"><div class="eyebrow">DEINE SEITE. DEIN STIL.</div><h2>Mach dein Profil zu deinem.</h2><p>Inhalte bearbeiten, deinen Look anpassen und Änderungen veröffentlichen — alles an einem Ort.</p></section>
+  <section class="editor-intro"><div class="eyebrow">DEIN PERSÖNLICHES STUDIO</div><h2>Ein Ort. Ganz du.</h2><p>Dein Profil gestalten. Deine Links teilen. Deinen eigenen Stil zeigen.</p></section>
   <div class="editor-toolbar"><div class="editor-search"><label for="editorSearch" class="sr-only">Bereiche suchen</label><input id="editorSearch" type="text" placeholder="Bereich suchen …" autocomplete="off"><kbd>Enter ↵</kbd></div><button class="editor-button" type="button" onclick="togglePreviewDock()">Vorschau</button><button class="editor-button" type="button" onclick="openCommandPalette()" aria-label="Befehlssuche öffnen">Strg K</button></div>
   <p id="searchResults" role="status" class="sr-only"></p>
   <header class="ph"><h1 class="pt" id="pt">Profil</h1><div class="editor-actions"><span id="saveStatus" role="status" aria-live="polite">Keine offenen Änderungen</span><button type="button" class="editor-button primary" data-save onclick="save()">Änderungen speichern</button></div></header>
@@ -2225,7 +2225,7 @@ document.addEventListener("DOMContentLoaded",function(){
   try{renderFeatures();}catch(e){console.error(e);}
   try{bindAdminStudio();}catch(e){console.error(e);}
 });
-</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js"></script>
+</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=modern-2026"></script>
 </body></html>`);
 });
 
