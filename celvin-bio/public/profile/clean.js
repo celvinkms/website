@@ -9,7 +9,7 @@
    entry.classList.add('leaving');entry.disabled=true;
    window.dispatchEvent(new Event('profile:enter'));
    const heading=stage.querySelector('h1');heading.tabIndex=-1;heading.focus({preventScroll:true});
-   setTimeout(()=>{entry.hidden=true;},matchMedia('(prefers-reduced-motion: reduce)').matches?0:450);
+   setTimeout(()=>{entry.hidden=true;entry.querySelectorAll('video').forEach(video=>video.pause());},matchMedia('(prefers-reduced-motion: reduce)').matches?0:450);
   });
  }
 

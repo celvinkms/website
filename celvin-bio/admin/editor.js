@@ -5,6 +5,7 @@
     ['links','Links & Socials','Verwalte deine Plattformen und die Reihenfolge deiner Links.'],
     ['design','Design','Farben, Schrift und Kartenstil deiner Seite.'],
     ['entry','Startbildschirm','Eintritt aktivieren, Text und Farben ändern oder ein eigenes Bild hochladen.'],
+    ['entry-background','Start-Hintergrund','Transparenz und Unschärfe des Eintritts sowie GIFs und MP4s einstellen.'],
     ['background','Hintergrund','Bilder, Videos und Hintergrundfarben.'],
     ['effects','Musik & Effekte','Audio und visuelle Effekte gezielt einstellen.'],
     ['templates','Vorlagen','Wähle einen Look als Ausgangspunkt. Erst Speichern veröffentlicht ihn.'],
@@ -69,6 +70,30 @@
     const bannerText=document.createElement('div');const bannerTitle=document.createElement('strong');bannerTitle.textContent='Deine öffentliche Seite';
     const bannerLink=document.createElement('a');bannerLink.href='/';bannerLink.target='_blank';bannerLink.rel='noopener';bannerLink.textContent='celvin.rip ↗';bannerText.append(bannerTitle,bannerLink);
     const bannerNote=document.createElement('span');bannerNote.textContent='Änderungen werden mit Speichern veröffentlicht.';banner.append(bannerImage,bannerText,bannerNote);intro.after(banner);
+    const mediaStatus=document.getElementById('entry_media_status');
+    const mediaInput=document.getElementById('entry_media_file');
+    function updateEntryVideo(){const video=document.getElementById('entry_video_preview');video.src=document.getElementById('entry_bg_video').value;video.style.display=video.getAttribute('src')?'block':'none';}
+    document.getElementById('entry_bg_video').addEventListener('input',()=>{document.getElementById('entry_bg_type').value='video';updateEntryVideo();});
+    document.getElementById('entry_bg_image_text').addEventListener('input',()=>{document.getElementById('entry_bg_type').value='image';});
+    document.getElementById('entry_clear_media').addEventListener('click',()=>{
+      ['entry_bg_video','entry_bg_image','entry_bg_image_text'].forEach(id=>document.getElementById(id).value='');
+      document.getElementById('entry_bg_preview').style.display='none';updateEntryVideo();document.getElementById('entry_bg_type').value='inherit';mediaStatus.textContent='Eigene Medien entfernt. Änderungen speichern.';markDirty();
+    });
+    mediaInput.addEventListener('change',async()=>{
+      const file=mediaInput.files[0];if(!file)return;
+      if(file.size>25*1024*1024){mediaStatus.textContent='Bitte eine Datei unter 25 MB wählen.';return;}
+      mediaInput.disabled=true;mediaStatus.textContent='Wird hochgeladen …';
+      const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),90000);
+      try{
+        const response=await fetch('/admin/upload-entry-media',{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream'},body:file,signal:controller.signal});
+        const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'Upload fehlgeschlagen.');
+        document.getElementById('entry_bg_type').value=result.kind;
+        if(result.kind==='video'){document.getElementById('entry_bg_video').value=result.url;updateEntryVideo();}
+        else{document.getElementById('entry_bg_image').value=result.url;document.getElementById('entry_bg_image_text').value=result.url;const preview=document.getElementById('entry_bg_preview');preview.src=result.url;preview.style.display='block';}
+        mediaStatus.textContent=file.name+' hochgeladen. Änderungen speichern, um zu veröffentlichen.';markDirty();
+      }catch(error){mediaStatus.textContent=error.name==='AbortError'?'Upload dauert zu lange. Bitte erneut versuchen.':error.message;}
+      finally{clearTimeout(timeout);mediaInput.disabled=false;mediaInput.value='';}
+    });
     const originalNav = window.navTo;
     window.navTo = function(id) {
       if (!document.getElementById('sec-'+id)) return;
