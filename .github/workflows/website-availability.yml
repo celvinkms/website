@@ -1,0 +1,43 @@
+name: Website availability
+
+on:
+  schedule:
+    # Avoid the busy start of the hour. Requests also keep the Render instance active.
+    - cron: '7,17,27,37,47,57 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/website-availability.yml'
+      - 'celvin-bio/server.js'
+
+# No repository access or credentials are needed for a public HTTP check.
+permissions: {}
+
+concurrency:
+  group: website-availability
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check the live Express instance without recording a profile view
+        env:
+          CHECK_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          response="$(curl --fail --silent --show-error --location \
+            --connect-timeout 15 --max-time 90 \
+            --retry 1 --retry-delay 5 --retry-max-time 120 \
+            --header 'Cache-Control: no-cache' \
+            --user-agent 'celvin-website-availability/1.0' \
+            "https://celvin.rip/healthz?check=${CHECK_ID}")"
+          printf '%s' "$response" | python3 -c '
+          import json, sys
+          result = json.load(sys.stdin)
+          if result.get("ok") is not True or result.get("service") != "bio":
+              raise SystemExit("The website did not return its health response")
+          print("Website is responding; no profile visit recorded.")
+          '
