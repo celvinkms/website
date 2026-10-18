@@ -4,6 +4,7 @@
     ['profile','Profil','Name, Bio, Avatar und Badges für dein öffentliches Profil.','Deine Seite'],
     ['links','Links & Socials','Verwalte deine Plattformen und die Reihenfolge deiner Links.'],
     ['design','Design','Farben, Schrift und Kartenstil deiner Seite.'],
+    ['entry','Startbildschirm','Eintritt aktivieren, Text und Farben ändern oder ein eigenes Bild hochladen.'],
     ['background','Hintergrund','Bilder, Videos und Hintergrundfarben.'],
     ['effects','Musik & Effekte','Audio und visuelle Effekte gezielt einstellen.'],
     ['templates','Vorlagen','Wähle einen Look als Ausgangspunkt. Erst Speichern veröffentlicht ihn.'],
@@ -19,6 +20,9 @@
   ];
   function boot() {
     document.body.classList.add('admin-editor');
+    const overlayField=document.getElementById('bg_overlay_opacity').closest('.fi');
+    document.getElementById('sec-background').append(overlayField);
+    document.getElementById('bg_type').addEventListener('change',()=>{document.getElementById('bg_use_avatar').checked=false;});
     const side = document.querySelector('.sidebar');
     const footer = side.querySelector('.sf');
     sections.forEach(([id,label,note,group]) => {
