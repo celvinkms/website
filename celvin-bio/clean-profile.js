@@ -9,7 +9,7 @@ function renderCleanProfile(c,{links='',badges=''}={}){
  const name=esc(c.username||'sorrow'),presence=renderPresence(c),entry=c.entry_enabled!==false;
  const tabTitle=esc(c.meta_title||c.username||'sorrow');
  const customIcon=typeof c.favicon_url==='string'&&(/^(?:https?:\/\/|\/(?!\/)|data:image\/(?:png|jpeg|webp|gif|svg\+xml|x-icon)[;,])/i.test(c.favicon_url))?c.favicon_url:'';
- const favicon=esc(customIcon||'/profile/favicon.svg?v=tab-1');
+ const favicon=esc(customIcon||'/profile/bunny-tab.jpg?v=tab-2');
  const backgroundCss=c.bg_type==='gradient'?'linear-gradient('+clamp(c.bg_gradient_angle??135,135,0,360)+'deg,'+color(c.bg_gradient_from,'#050505')+','+color(c.bg_gradient_to,'#101014')+')':color(c.bg_color,'#050505');
  const sceneStyle='--scene-bg:'+backgroundCss+';--scene-dim:'+clamp(c.bg_overlay_opacity??.3,.3,0,1)+';--scene-blur:'+clamp(c.bg_blur_amount??3,3,0,20)+'px';
  const entryHex=color(c.entry_bg_color,'#050505').slice(1);
@@ -41,7 +41,7 @@ function renderCleanProfile(c,{links='',badges=''}={}){
  links?'<nav class="connections reveal" style="--order:5" aria-label="Social Links"><div class="socials">'+links+'</div></nav>':'',
  '<div class="player-wrap reveal" style="--order:6">'+player+'</div>',
  c.show_views!==false?'<p class="visitors reveal" style="--order:7" aria-label="'+esc(Number(c.views)||0)+' Profilaufrufe">'+eye+'<span>'+new Intl.NumberFormat('de-DE').format(Number(c.views)||0)+'</span></p>':'',
- '</article></main><footer class="site-footer"><span class="footer-mark">✦</span></footer><div id="copyStatus" role="status" aria-live="polite"></div><script src="/profile/clean.js?v=nocturne-1"></script><script src="/profile/discord-presence.js?v=discord-live-15"></script><script src="/profile/nocturne.js?v=nocturne-1"></script></body></html>'
+ '</article></main><footer class="site-footer"><span class="footer-mark">✦</span></footer><div id="copyStatus" role="status" aria-live="polite"></div><script src="/profile/clean.js?v=nocturne-1"></script><script src="/profile/discord-presence.js?v=discord-live-15"></script><script src="/profile/nocturne.js?v=nocturne-1"></script><script src="/profile/tab-title.js?v=tab-2"></script></body></html>'
  ].join('');
 }
 module.exports={renderCleanProfile};
