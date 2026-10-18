@@ -15,10 +15,15 @@
 
  button.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(location.origin+location.pathname);status.textContent='Link kopiert';}catch{status.textContent=location.origin+location.pathname;}status.classList.add('visible');clearTimeout(timer);timer=setTimeout(()=>status.classList.remove('visible'),2500);});
  document.querySelectorAll('.socials .link-btn').forEach(link=>{
+  const platform=link.querySelector('.link-platform')?.textContent.trim()||'Kontakt';
+  if(platform.toLowerCase()==='discord'){
+   link.classList.add('discord-link');
+   const path=link.querySelector('.li svg path');
+   if(path){path.setAttribute('fill-rule','evenodd');path.setAttribute('d',path.getAttribute('d')+' M9.4 12.5 a1.35 1.65 0 1 0 -2.7 0 a1.35 1.65 0 1 0 2.7 0 Z M17.3 12.5 a1.35 1.65 0 1 0 -2.7 0 a1.35 1.65 0 1 0 2.7 0 Z');}
+  }
   if(link.tagName==='A')return;
   const copy=document.createElement('button');copy.type='button';copy.className=link.className;
   const username=link.querySelector('.link-username')?.textContent.trim()||'';
-  const platform=link.querySelector('.link-platform')?.textContent.trim()||'Kontakt';
   copy.setAttribute('aria-label',platform+': '+username+' kopieren');copy.title=username+' kopieren';
   copy.replaceChildren(...link.childNodes);link.replaceWith(copy);
   copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(username);status.textContent=platform+' kopiert';}catch{status.textContent=username;}status.classList.add('visible');clearTimeout(timer);timer=setTimeout(()=>status.classList.remove('visible'),2500);});

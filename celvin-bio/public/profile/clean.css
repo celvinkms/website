@@ -13,3 +13,5 @@
 .music-fallback{display:block;font-size:10px;color:#aaa;padding-bottom:12px}.music-fallback[hidden]{display:none}
 
 .entry-screen{background:transparent;backdrop-filter:blur(var(--entry-blur,4px));-webkit-backdrop-filter:blur(var(--entry-blur,4px))}.entry-screen:after{content:'';position:absolute;inset:0;background:rgba(var(--entry-rgb,5,4,4),var(--entry-opacity,.35));pointer-events:none}.entry-screen>.entry-media{position:absolute;inset:-24px;width:calc(100% + 48px);height:calc(100% + 48px);object-fit:cover;opacity:1;filter:blur(var(--entry-blur,4px));pointer-events:none}.entry-screen span{z-index:1}
+
+.socials .discord-link .li{color:#929bff!important;filter:drop-shadow(0 0 7px #5865f224);transition:color .2s,filter .2s,transform .2s}.socials .discord-link .li svg{width:25px;height:25px}.socials .discord-link:hover .li,.socials .discord-link:focus-visible .li{color:#b0b7ff!important;filter:drop-shadow(0 0 9px #5865f260);transform:translateY(-1px)}
