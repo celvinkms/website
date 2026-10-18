@@ -27,7 +27,8 @@ app.use("/admin/assets", express.static(path.join(__dirname, "admin")));
 app.use("/profile", express.static(path.join(__dirname, "public", "profile")));
 app.use(express.json({ limit: "400mb" }));
 app.use(express.urlencoded({ extended: true, limit: "400mb" }));
-app.use(session({ secret: process.env.SESSION_SECRET || "celvin-secret-2024", resave: false, saveUninitialized: false, cookie: { maxAge: 86400000 } }));
+const sessionSecret = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
+app.use(session({ secret: sessionSecret, resave: false, saveUninitialized: false, cookie: { maxAge: 86400000 } }));
 
 function setEmbedNoCache(res) {
   res.set({
@@ -106,6 +107,7 @@ const DEFAULT_CONFIG = {
   ],
   spotify_url: "", audio_url: "", audio_autoplay: false, audio_loop: true, audio_volume: 0.5, audio_title: "", bg_video_url: "", bg_overlay_opacity: 0.3, bg_blur_amount: 0, card_shadow: true, show_song_widget: false, custom_css: "", meta_title: "", meta_description: "", favicon_url: "", custom_head: "", custom_js: "", badge_style: "pill", profile_layout: "center", page_width: "440", card_radius: "24", avatar_size: "90", feature_flags: {}, views: 0,
   analytics_enabled: true, click_tracking: true, announcement_enabled: false, announcement_text: "", announcement_url: "",
+  entry_enabled: true, entry_text: "click", entry_bg_color: "#050404", entry_text_color: "#eeeeee", entry_text_size: 20, entry_bg_image: "", bg_use_avatar: true,
   enter_screen_enabled: false, enter_screen_text: "click here :3", share_bar_enabled: true, copy_button_enabled: true, theme_toggle_enabled: false,
   profile_title: "", hero_subtitle: "", quote_enabled: false, quote_text: "", cta_enabled: false, cta_label: "", cta_url: "",
   stats_enabled: false, stats_items: "", gear_enabled: false, gear_items: "", timeline_enabled: false, timeline_items: "",
@@ -126,7 +128,9 @@ async function initDB() {
   await pool.query(`CREATE TABLE IF NOT EXISTS bio_asset_chunks (asset_key TEXT NOT NULL, chunk_index INTEGER NOT NULL, data BYTEA NOT NULL, size_bytes INTEGER NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ DEFAULT now(), PRIMARY KEY(asset_key, chunk_index))`);
   const { rows } = await pool.query("SELECT id FROM bio_config LIMIT 1");
   if (rows.length === 0) {
-    const d = { ...DEFAULT_CONFIG, password: await bcrypt.hash("admin123", 10) };
+    const initialPassword = process.env.INITIAL_ADMIN_PASSWORD;
+    if (!initialPassword || initialPassword.length < 8) throw new Error("Für eine neue Datenbank muss INITIAL_ADMIN_PASSWORD mit mindestens 8 Zeichen gesetzt sein.");
+    const d = { ...DEFAULT_CONFIG, password: await bcrypt.hash(initialPassword, 10) };
     await pool.query("INSERT INTO bio_config (data) VALUES ($1)", [d]);
   }
   await applyRequestedTheme(pool);
@@ -541,7 +545,7 @@ function publicUrl(req) {
 }
 function hashIp(req) {
   const raw = String(req.headers["cf-connecting-ip"] || req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "").split(",")[0].trim();
-  const salt = process.env.ANALYTICS_SALT || process.env.SESSION_SECRET || "bio-analytics";
+  const salt = process.env.ANALYTICS_SALT || sessionSecret;
   return crypto.createHash("sha256").update(raw + salt).digest("hex").slice(0, 20);
 }
 async function trackEvent(req, type, extra = {}) {
@@ -1519,13 +1523,14 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
 @media(max-width:1250px){.previewDock{display:none}.main{max-width:none}}@media(max-width:760px){body{display:block}.sidebar{position:relative;width:auto;height:auto;min-height:0;display:grid;grid-template-columns:repeat(2,1fr)}.sf{display:none}.main{padding:1rem}.statGrid{grid-template-columns:repeat(2,1fr)}.adminHero h2{font-size:1.6rem}.featureTools{grid-template-columns:1fr}.badge-editor,.badge-row{grid-template-columns:1fr}}
 
 </style>
-<link rel="stylesheet" href="/admin/assets/editor.css?v=studio-2">
+<link rel="stylesheet" href="/admin/assets/editor.css?v=custom-7">
 </head><body class="admin-editor">
 <nav class="sidebar" aria-label="Admin-Bereiche">
   <div class="logo">cel<span>vin</span>.rip</div>
   <button class="ni active" data-section="templates"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Templates</button>
   <button class="ni" data-section="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Profil</button>
   <button class="ni" data-section="design"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>Design</button>
+  <button class="ni" data-section="entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m10 9 4 3-4 3"/></svg>Startbildschirm</button>
   <button class="ni" data-section="background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Hintergrund</button>
   <button class="ni" data-section="links"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Socials</button>
   <button class="ni" data-section="effects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Effekte</button>
@@ -1662,10 +1667,19 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
     <input type="hidden" id="link_style" value="${c.link_style||"default"}">
   </div>
 
+  <div class="sec" id="sec-entry">
+    <p class="st" style="margin-top:0">Startbildschirm</p>
+    <div class="tr"><div><div class="tl">Click-to-enter aktivieren</div><div class="td">Ein Klick öffnet dein Profil und startet die Musik.</div></div><label class="sw"><input type="checkbox" id="entry_enabled" ${c.entry_enabled!==false?'checked':''}><span class="sl"></span></label></div>
+    <div class="fi"><label for="entry_text">Text</label><input type="text" id="entry_text" maxlength="120" value="${esc(c.entry_text||'click')}" placeholder="click"></div>
+    <div class="r2"><div class="fi"><label for="entry_bg_color">Hintergrundfarbe</label><input type="color" id="entry_bg_color" value="${safeColor(c.entry_bg_color,'#050404')}"></div><div class="fi"><label for="entry_text_color">Textfarbe</label><input type="color" id="entry_text_color" value="${safeColor(c.entry_text_color,'#eeeeee')}"></div></div>
+    <div class="fi"><label for="entry_text_size">Schriftgröße (px)</label><input type="number" id="entry_text_size" min="14" max="72" value="${Math.max(14,Math.min(72,Number(c.entry_text_size)||20))}"></div>
+    <div class="fi"><label>Optionales Hintergrundbild</label><input type="file" id="entry_bg_file" accept="image/*" style="display:none" onchange="handleImgUpload(this,'entry_bg_image','entry_bg_preview','entry_bg_filename')"><button type="button" class="upload-btn" onclick="document.getElementById('entry_bg_file').click()">Bild wählen</button><span id="entry_bg_filename" class="td">${c.entry_bg_image?'Bild gesetzt':'Kein Bild'}</span><img id="entry_bg_preview" alt="Vorschau des Startbildschirms" src="${esc(c.entry_bg_image||'')}" style="display:${c.entry_bg_image?'block':'none'};width:100%;max-height:160px;object-fit:cover;margin-top:12px;border-radius:10px"><input type="hidden" id="entry_bg_image" value="${esc(c.entry_bg_image||'')}"><label for="entry_bg_image_text">Bild-URL (leer = nur Farbe)</label><input type="url" id="entry_bg_image_text" value="${esc(c.entry_bg_image&&!c.entry_bg_image.startsWith('data:')?c.entry_bg_image:'')}" placeholder="https://…" oninput="document.getElementById('entry_bg_image').value=this.value;document.getElementById('entry_bg_preview').src=this.value;document.getElementById('entry_bg_preview').style.display=this.value?'block':'none'"><button type="button" class="bab" onclick="document.getElementById('entry_bg_image').value='';document.getElementById('entry_bg_image_text').value='';document.getElementById('entry_bg_preview').style.display='none';document.getElementById('entry_bg_filename').textContent='Kein Bild';markDirty()">Bild entfernen</button></div>
+  </div>
+
   <!-- HINTERGRUND -->
   <div class="sec" id="sec-background">
     <p class="st" style="margin-top:0">Hintergrund</p>
-    <div id="bgp" class="bgp"></div>
+    <div class="tr"><div><div class="tl">Profilbild als Hintergrund</div><div class="td">Deaktivieren, um die Farben oder den Verlauf unten zu verwenden. Ein eigenes Bild oder Video hat Vorrang.</div></div><label class="sw"><input type="checkbox" id="bg_use_avatar" ${c.bg_use_avatar!==false?"checked":""}><span class="sl"></span></label></div><div id="bgp" class="bgp"></div>
     <div class="fi"><label>Typ</label><select id="bg_type" onchange="updBg()">
       <option value="solid" ${c.bg_type==="solid"?"selected":""}>Einfarbig</option>
       <option value="gradient" ${c.bg_type==="gradient"?"selected":""}>Gradient</option>
@@ -1696,8 +1710,8 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
       <div class="fi"><label>oder externe Video URL</label><input type="url" id="bg_video_url" value="${c.bg_video_url||""}" placeholder="https://...video.mp4 oder /asset/bg-video" oninput="syncBgVideoPreview(this.value)"></div>
       <div class="fi"><label>Overlay Deckkraft (0=kein, 1=schwarz)</label>
         <div style="display:flex;align-items:center;gap:10px;">
-          <input type="range" id="bg_overlay_opacity" min="0" max="1" step="0.05" value="${c.bg_overlay_opacity||0.3}" style="flex:1;accent-color:var(--a)" oninput="this.nextElementSibling.textContent=Math.round(this.value*100)+'%';">
-          <span style="font-family:monospace;font-size:12px;color:var(--m);width:38px;">${Math.round((c.bg_overlay_opacity||0.3)*100)}%</span>
+          <input type="range" id="bg_overlay_opacity" min="0" max="1" step="0.05" value="${c.bg_overlay_opacity??0.3}" style="flex:1;accent-color:var(--a)" oninput="this.nextElementSibling.textContent=Math.round(this.value*100)+'%';">
+          <span style="font-family:monospace;font-size:12px;color:var(--m);width:38px;">${Math.round((c.bg_overlay_opacity??0.3)*100)}%</span>
         </div>
       </div>
     </div>
@@ -1713,7 +1727,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
         <div style="margin-top:8px;"><label style="margin-bottom:4px;display:block;">oder URL eingeben</label><input type="url" id="bg_url_text" placeholder="https://..." value="${c.bg_image_url&&!c.bg_image_url.startsWith("data:")?c.bg_image_url:""}" oninput="document.getElementById('bg_image_url').value=this.value;document.getElementById('bg_preview').src=this.value;document.getElementById('bg_preview').style.display=this.value?'block':'none';"></div>
       </div>
     </div>
-    <p class="st">Muster & Effekte</p>
+    <div class="fi"><label for="bg_blur_amount">Unschärfe (px)</label><input type="range" id="bg_blur_amount" min="0" max="20" step="1" value="${Number(c.bg_blur_amount)||0}" oninput="this.nextElementSibling.textContent=this.value+'px'"><span class="td">${Number(c.bg_blur_amount)||0}px</span></div><p class="st">Muster & Effekte</p>
     <div class="fi"><label>Hintergrund-Muster</label><select id="bg_pattern">
       <option value="none" ${(c.bg_pattern||"none")==="none"?"selected":""}>Keins</option>
       <option value="dots" ${c.bg_pattern==="dots"?"selected":""}>Punkte</option>
@@ -1738,7 +1752,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
     <div class="tr"><div><div class="tl">Cursor Glow</div><div class="td">Leuchtendes Licht folgt dem Mauszeiger</div></div><label class="sw"><input type="checkbox" id="cursor_glow" ${c.cursor_glow?"checked":""}><span class="sl"></span></label></div>
     <div class="tr"><div><div class="tl">Besucherzähler</div><div class="td">Zeigt Seitenaufrufe unten an</div></div><label class="sw"><input type="checkbox" id="show_views" ${c.show_views?"checked":""}><span class="sl"></span></label></div>
     <p class="st">YouTube-Song</p>
-    <div class="fi"><label for="youtube_url">YouTube-Link</label><input type="url" id="youtube_url" value="${esc(c.youtube_url || "")}" placeholder="https://www.youtube.com/watch?v=…"><p class="td">Der Song erscheint als YouTube-Player auf deinem Profil. Zum Abspielen auf Play klicken. Ein YouTube-Song hat Vorrang vor einer Audio-Datei.</p></div>
+    <div class="fi"><label for="youtube_url">YouTube-Link</label><input type="url" id="youtube_url" value="${esc(c.youtube_url || "")}" placeholder="https://www.youtube.com/watch?v=…"><p class="td">Der Song startet nach dem Eintritt und wird über die Musikzeile gesteuert. Das Videofeld bleibt ausgeblendet. Ein YouTube-Song hat Vorrang vor einer Audio-Datei.</p></div>
     <p class="st">🎵 Audio-Datei (Alternative)</p>
     <div class="fi"><label>Audio URL (mp3, ogg, wav)</label>
       <input type="file" id="audio_file" accept=".mp3,.ogg,.wav,audio/*" style="display:none" onchange="handleAudioUpload(this)">
@@ -2170,12 +2184,20 @@ async function save(){
     audio_url:document.getElementById("audio_url").value,
     youtube_url:document.getElementById("youtube_url").value,
     profile_theme:document.getElementById("profile_theme").value,
+    entry_enabled:document.getElementById("entry_enabled").checked,
+    entry_text:document.getElementById("entry_text").value,
+    entry_bg_color:document.getElementById("entry_bg_color").value,
+    entry_text_color:document.getElementById("entry_text_color").value,
+    entry_text_size:Number(document.getElementById("entry_text_size").value),
+    entry_bg_image:document.getElementById("entry_bg_image").value,
+    bg_use_avatar:document.getElementById("bg_use_avatar").checked,
+    bg_blur_amount:Number(document.getElementById("bg_blur_amount").value),
     audio_autoplay:document.getElementById("audio_autoplay").checked,
     audio_loop:document.getElementById("audio_loop").checked,
     audio_volume:parseFloat(document.getElementById("audio_volume").value||0.5),
     audio_title:document.getElementById("audio_title").value,
     bg_video_url:document.getElementById("bg_video_url").value,
-    bg_overlay_opacity:parseFloat(document.getElementById("bg_overlay_opacity").value||0.3),
+    bg_overlay_opacity:parseFloat(document.getElementById("bg_overlay_opacity").value??0.3),
     feature_flags:featureFlags,
     links
   };
@@ -2239,7 +2261,7 @@ document.addEventListener("DOMContentLoaded",function(){
   try{renderFeatures();}catch(e){console.error(e);}
   try{bindAdminStudio();}catch(e){console.error(e);}
 });
-</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=studio-2"></script>
+</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=custom-7"></script>
 </body></html>`);
 });
 
