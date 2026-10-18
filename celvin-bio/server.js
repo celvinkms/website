@@ -107,7 +107,7 @@ const DEFAULT_CONFIG = {
   ],
   spotify_url: "", audio_url: "", audio_autoplay: false, audio_loop: true, audio_volume: 0.5, audio_title: "", bg_video_url: "", bg_overlay_opacity: 0.3, bg_blur_amount: 0, card_shadow: true, show_song_widget: false, custom_css: "", meta_title: "", meta_description: "", favicon_url: "", custom_head: "", custom_js: "", badge_style: "pill", profile_layout: "center", page_width: "440", card_radius: "24", avatar_size: "90", feature_flags: {}, views: 0,
   analytics_enabled: true, click_tracking: true, announcement_enabled: false, announcement_text: "", announcement_url: "",
-  entry_enabled: true, entry_text: "click", entry_bg_color: "#050404", entry_text_color: "#eeeeee", entry_text_size: 20, entry_bg_image: "", bg_use_avatar: true,
+  entry_enabled: true, entry_text: "click", entry_bg_color: "#050404", entry_text_color: "#eeeeee", entry_text_size: 20, entry_bg_image: "", entry_bg_video: "", entry_bg_type: "", entry_bg_opacity: 0.35, entry_bg_blur: 4, bg_use_avatar: true,
   enter_screen_enabled: false, enter_screen_text: "click here :3", share_bar_enabled: true, copy_button_enabled: true, theme_toggle_enabled: false,
   profile_title: "", hero_subtitle: "", quote_enabled: false, quote_text: "", cta_enabled: false, cta_label: "", cta_url: "",
   stats_enabled: false, stats_items: "", gear_enabled: false, gear_items: "", timeline_enabled: false, timeline_items: "",
@@ -977,6 +977,28 @@ app.get("/audio", async (req, res) => {
 
 
 
+app.post("/admin/upload-entry-media", requireAdminApi, express.raw({type:["image/*","video/*","application/octet-stream"],limit:"25mb"}), async (req,res)=>{
+  try {
+    const type=String(req.headers["content-type"]||"").split(";")[0].toLowerCase();
+    if(!["image/gif","image/png","image/jpeg","image/webp","video/mp4","video/webm"].includes(type))return res.status(415).json({ok:false,error:"Bitte GIF, Bild, MP4 oder WebM wählen."});
+    if(!Buffer.isBuffer(req.body)||!req.body.length||req.body.length>25*1024*1024)return res.status(400).json({ok:false,error:"Die Datei muss zwischen 1 Byte und 25 MB groß sein."});
+    const assetKey="entry_bg_"+crypto.randomBytes(12).toString("hex");
+    await pool.query("INSERT INTO bio_assets (asset_key,filename,content_type,data,size_bytes) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (asset_key) DO UPDATE SET filename=EXCLUDED.filename,content_type=EXCLUDED.content_type,data=EXCLUDED.data,size_bytes=EXCLUDED.size_bytes,updated_at=now()",[assetKey,"entry-background",type,req.body,req.body.length]);
+    res.json({ok:true,url:"/asset/entry-background/"+assetKey,kind:type.startsWith("video/")?"video":"image"});
+  }catch(error){console.error("Start-Hintergrund Upload:",error.code||error.message);res.status(500).json({ok:false,error:"Upload fehlgeschlagen. Bitte erneut versuchen."});}
+});
+app.get("/asset/entry-background/:key",async(req,res)=>{
+  try {
+    if(!/^entry_bg_[a-f0-9]{24}$/.test(req.params.key||""))return res.status(404).send("Not found");
+    const {rows}=await pool.query("SELECT content_type,data,size_bytes FROM bio_assets WHERE asset_key=$1",[req.params.key]);
+    if(!rows.length)return res.status(404).send("Not found");
+    const asset=rows[0],data=asset.data;
+    res.set({"Content-Type":asset.content_type,"Accept-Ranges":"bytes","Cache-Control":"no-cache","X-Content-Type-Options":"nosniff"});
+    if(req.headers.range){const range=parseRange(req.headers.range,data.length);if(!range){res.set("Content-Range","bytes */"+data.length);return res.status(416).send("");}res.set({"Content-Range":`bytes ${range.start}-${range.end}/${data.length}`,"Content-Length":String(range.end-range.start+1)});return res.status(206).send(data.subarray(range.start,range.end+1));}
+    res.set("Content-Length",String(data.length));res.send(data);
+  }catch(error){console.error("Start-Hintergrund laden:",error.code||error.message);res.status(503).send("Temporarily unavailable");}
+});
+
 app.post("/admin/upload-bg-video-init", requireAuth, async (req, res) => {
   try {
     const filename = safeFileName(req.body?.name || "background-video");
@@ -1523,7 +1545,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
 @media(max-width:1250px){.previewDock{display:none}.main{max-width:none}}@media(max-width:760px){body{display:block}.sidebar{position:relative;width:auto;height:auto;min-height:0;display:grid;grid-template-columns:repeat(2,1fr)}.sf{display:none}.main{padding:1rem}.statGrid{grid-template-columns:repeat(2,1fr)}.adminHero h2{font-size:1.6rem}.featureTools{grid-template-columns:1fr}.badge-editor,.badge-row{grid-template-columns:1fr}}
 
 </style>
-<link rel="stylesheet" href="/admin/assets/editor.css?v=custom-7">
+<link rel="stylesheet" href="/admin/assets/editor.css?v=entry-media-8">
 </head><body class="admin-editor">
 <nav class="sidebar" aria-label="Admin-Bereiche">
   <div class="logo">cel<span>vin</span>.rip</div>
@@ -1531,6 +1553,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
   <button class="ni" data-section="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Profil</button>
   <button class="ni" data-section="design"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>Design</button>
   <button class="ni" data-section="entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m10 9 4 3-4 3"/></svg>Startbildschirm</button>
+  <button class="ni" data-section="entry-background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m10 8 6 4-6 4z"/></svg>Start-Hintergrund</button>
   <button class="ni" data-section="background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Hintergrund</button>
   <button class="ni" data-section="links"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Socials</button>
   <button class="ni" data-section="effects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Effekte</button>
@@ -1673,7 +1696,17 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
     <div class="fi"><label for="entry_text">Text</label><input type="text" id="entry_text" maxlength="120" value="${esc(c.entry_text||'click')}" placeholder="click"></div>
     <div class="r2"><div class="fi"><label for="entry_bg_color">Hintergrundfarbe</label><input type="color" id="entry_bg_color" value="${safeColor(c.entry_bg_color,'#050404')}"></div><div class="fi"><label for="entry_text_color">Textfarbe</label><input type="color" id="entry_text_color" value="${safeColor(c.entry_text_color,'#eeeeee')}"></div></div>
     <div class="fi"><label for="entry_text_size">Schriftgröße (px)</label><input type="number" id="entry_text_size" min="14" max="72" value="${Math.max(14,Math.min(72,Number(c.entry_text_size)||20))}"></div>
-    <div class="fi"><label>Optionales Hintergrundbild</label><input type="file" id="entry_bg_file" accept="image/*" style="display:none" onchange="handleImgUpload(this,'entry_bg_image','entry_bg_preview','entry_bg_filename')"><button type="button" class="upload-btn" onclick="document.getElementById('entry_bg_file').click()">Bild wählen</button><span id="entry_bg_filename" class="td">${c.entry_bg_image?'Bild gesetzt':'Kein Bild'}</span><img id="entry_bg_preview" alt="Vorschau des Startbildschirms" src="${esc(c.entry_bg_image||'')}" style="display:${c.entry_bg_image?'block':'none'};width:100%;max-height:160px;object-fit:cover;margin-top:12px;border-radius:10px"><input type="hidden" id="entry_bg_image" value="${esc(c.entry_bg_image||'')}"><label for="entry_bg_image_text">Bild-URL (leer = nur Farbe)</label><input type="url" id="entry_bg_image_text" value="${esc(c.entry_bg_image&&!c.entry_bg_image.startsWith('data:')?c.entry_bg_image:'')}" placeholder="https://…" oninput="document.getElementById('entry_bg_image').value=this.value;document.getElementById('entry_bg_preview').src=this.value;document.getElementById('entry_bg_preview').style.display=this.value?'block':'none'"><button type="button" class="bab" onclick="document.getElementById('entry_bg_image').value='';document.getElementById('entry_bg_image_text').value='';document.getElementById('entry_bg_preview').style.display='none';document.getElementById('entry_bg_filename').textContent='Kein Bild';markDirty()">Bild entfernen</button></div>
+
+  </div>
+
+  <div class="sec" id="sec-entry-background">
+    <p class="st" style="margin-top:0">Start-Hintergrund</p>
+    <div class="fi"><label for="entry_bg_type">Hintergrund</label><select id="entry_bg_type"><option value="inherit" ${(c.entry_bg_type||(c.entry_bg_image?'image':'inherit'))==='inherit'?'selected':''}>Profil-Hintergrund durchscheinen lassen</option><option value="image" ${(c.entry_bg_type||(c.entry_bg_image?'image':'inherit'))==='image'?'selected':''}>Bild / animiertes GIF</option><option value="video" ${c.entry_bg_type==='video'?'selected':''}>Video (MP4 / WebM)</option></select></div>
+    <div class="fi"><label for="entry_bg_opacity">Abdunklung / Deckkraft</label><input type="range" id="entry_bg_opacity" min="0" max="1" step="0.05" value="${c.entry_bg_opacity??.35}" oninput="this.nextElementSibling.textContent=Math.round(this.value*100)+'%'"><span class="td">${Math.round((c.entry_bg_opacity??.35)*100)}%</span></div>
+    <div class="fi"><label for="entry_bg_blur">Unschärfe</label><input type="range" id="entry_bg_blur" min="0" max="20" step="1" value="${c.entry_bg_blur??4}" oninput="this.nextElementSibling.textContent=this.value+'px'"><span class="td">${c.entry_bg_blur??4}px</span></div>
+    <div class="fi"><label>GIF / Bild / MP4 hochladen</label><input type="file" id="entry_media_file" accept="image/gif,image/png,image/jpeg,image/webp,video/mp4,video/webm" hidden><button type="button" class="upload-btn" onclick="document.getElementById('entry_media_file').click()">Datei wählen</button><p id="entry_media_status" class="td" role="status">GIF, JPG, PNG, WebP, MP4 oder WebM · bis 25 MB</p></div>
+    <div class="fi"><label for="entry_bg_video">Video-URL (MP4 / WebM)</label><input type="url" id="entry_bg_video" value="${esc(c.entry_bg_video||'')}" placeholder="https://…/background.mp4"><video id="entry_video_preview" src="${esc(c.entry_bg_video||'')}" muted loop playsinline controls preload="metadata" style="display:${c.entry_bg_video?'block':'none'};width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-top:12px"></video></div>
+    <div class="fi"><label for="entry_bg_image_text">Bild-/GIF-URL</label><input type="url" id="entry_bg_image_text" value="${esc(c.entry_bg_image&&!c.entry_bg_image.startsWith('data:')?c.entry_bg_image:'')}" placeholder="https://…/background.gif" oninput="document.getElementById('entry_bg_image').value=this.value;document.getElementById('entry_bg_preview').src=this.value;document.getElementById('entry_bg_preview').style.display=this.value?'block':'none'"><input type="hidden" id="entry_bg_image" value="${esc(c.entry_bg_image||'')}"><img id="entry_bg_preview" alt="Bild-/GIF-Vorschau" src="${esc(c.entry_bg_image||'')}" style="display:${c.entry_bg_image?'block':'none'};width:100%;max-height:160px;object-fit:cover;margin-top:12px;border-radius:10px"></div><button type="button" id="entry_clear_media" class="bab">Eigene Medien entfernen</button>
   </div>
 
   <!-- HINTERGRUND -->
@@ -2190,6 +2223,10 @@ async function save(){
     entry_text_color:document.getElementById("entry_text_color").value,
     entry_text_size:Number(document.getElementById("entry_text_size").value),
     entry_bg_image:document.getElementById("entry_bg_image").value,
+    entry_bg_video:document.getElementById("entry_bg_video").value,
+    entry_bg_type:document.getElementById("entry_bg_type").value,
+    entry_bg_opacity:Number(document.getElementById("entry_bg_opacity").value),
+    entry_bg_blur:Number(document.getElementById("entry_bg_blur").value),
     bg_use_avatar:document.getElementById("bg_use_avatar").checked,
     bg_blur_amount:Number(document.getElementById("bg_blur_amount").value),
     audio_autoplay:document.getElementById("audio_autoplay").checked,
@@ -2261,7 +2298,7 @@ document.addEventListener("DOMContentLoaded",function(){
   try{renderFeatures();}catch(e){console.error(e);}
   try{bindAdminStudio();}catch(e){console.error(e);}
 });
-</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=custom-7"></script>
+</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=entry-media-8"></script>
 </body></html>`);
 });
 
