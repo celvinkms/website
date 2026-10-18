@@ -1,6 +1,8 @@
 const express = require("express");
 const {renderCleanProfile}=require("./clean-profile");
 const {catalog:discordBadgeCatalog,normalizeDiscordBadges,renderDiscordBadges,renderDiscordBadgeEditor}=require("./discord-badges");
+const {validDiscordId,filterPresence,createPresenceService,renderPresence,renderPresenceAdmin}=require("./discord-presence");
+const discordPresenceService=createPresenceService();
 const session = require("express-session");
 const bcrypt = require("bcrypt");
 const { Pool } = require("pg");
@@ -99,6 +101,7 @@ const TEMPLATES = {
 const DEFAULT_CONFIG = {
   username: "username", pronouns: "", avatar_type: "emoji", avatar_emoji: "🖤", avatar_url: "",
   bio: "your bio goes here.\nmake it short. make it yours.",
+  discord_user_id: "200470371881844737", discord_presence_enabled: true, discord_show_status: true, discord_show_activity: true, discord_show_spotify: true,
   discord_badges: [],
   badges: ["online", "de", "since 2024"], status: "online",
   ...TEMPLATES.dark,
@@ -897,7 +900,7 @@ ${patternCSS}${animBg}
 .arr{margin-left:auto;font-size:.75rem;color:var(--m);transition:color .2s;flex-shrink:0}
 .link-btn:hover .arr{color:var(--lc,var(--a))}
 body.has-bg-video::after{display:none!important;background:none!important}body.has-bg-video.fx-bg-scanlines,body.has-bg-video.fx-bg-grid-strong,body.has-bg-video.fx-bg-dots-strong{background-image:none!important}.has-bg-video .card{background-image:none!important}body.intro-blur video[data-bg-video]{filter:blur(${videoBlur}px) brightness(.72) saturate(1.06)!important}
-${v4PublicCSS(c)}</style><link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12">${customCSS}${c.profile_theme === "grunge-emo" || youtubeVideoId(c.youtube_url) ? '<link rel="stylesheet" href="/profile/grunge.css?v=studio-2">' : ""}
+${v4PublicCSS(c)}</style><link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-13">${customCSS}${c.profile_theme === "grunge-emo" || youtubeVideoId(c.youtube_url) ? '<link rel="stylesheet" href="/profile/grunge.css?v=studio-2">' : ""}
 </head><body class="${featureClasses} ${c.profile_theme === "grunge-emo" ? "grunge-emo" : ""}">
 ${bgVideoHtml}${particles}${glow}${v4PublicTopLayers(c)}
 <div class="card">
@@ -907,13 +910,26 @@ ${bgVideoHtml}${particles}${glow}${v4PublicTopLayers(c)}
   <div class="br">${badges}${renderDiscordBadges(c.discord_badges)}</div>
   <p class="bio">${bioLines}</p>
   <div class="dv"></div>
+  ${renderPresence(c)}
   <div class="lks">${links}</div>
   ${spotify}${v4PublicSections(c)}${youtubePlayer(c)}
 </div>
 ${audioWidget}${views}
-${renderV6PublicSkin(c)}${customJS?`<script>${customJS}</script>`:""}${v4PublicScripts(c)}${renderV5PublicSuite(c)}
+<script src="/profile/discord-presence.js?v=discord-live-13"></script>${renderV6PublicSkin(c)}${customJS?`<script>${customJS}</script>`:""}${v4PublicScripts(c)}${renderV5PublicSuite(c)}
 </body></html>`;
 }
+
+app.get("/api/discord-presence",async(req,res)=>{
+  res.set("Cache-Control","no-store");
+  try{const c=await getConfig();if(c.discord_presence_enabled===false||!validDiscordId(c.discord_user_id))return res.json({connected:false,available:false});const result=await discordPresenceService.lookup(c.discord_user_id);res.json(result.available?{connected:true,available:true,profile:filterPresence(result.profile,c)}:{connected:true,available:false,reason:result.reason});}
+  catch{res.status(503).json({connected:false,available:false,reason:"unavailable"});}
+});
+app.post("/admin/discord/test",requireAdminApi,async(req,res)=>{
+  const id=req.body?.user_id;if(!validDiscordId(id))return res.status(400).json({ok:false,error:"Bitte eine gültige Discord-Nutzer-ID mit 17 bis 20 Ziffern eingeben."});
+  const result=await discordPresenceService.lookup(id,{fresh:true});
+  if(!result.available)return res.status(503).json({ok:false,error:result.reason==='not_registered'?"Für diese ID sind noch keine Daten verfügbar. Bitte mit diesem Konto dem Lanyard-Server beitreten und erneut prüfen.":"Lanyard ist gerade nicht erreichbar. Bitte erneut versuchen."});
+  res.json({ok:true,profile:result.profile});
+});
 
 app.get("/", async (req, res) => {
   try {
@@ -1547,7 +1563,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
 @media(max-width:1250px){.previewDock{display:none}.main{max-width:none}}@media(max-width:760px){body{display:block}.sidebar{position:relative;width:auto;height:auto;min-height:0;display:grid;grid-template-columns:repeat(2,1fr)}.sf{display:none}.main{padding:1rem}.statGrid{grid-template-columns:repeat(2,1fr)}.adminHero h2{font-size:1.6rem}.featureTools{grid-template-columns:1fr}.badge-editor,.badge-row{grid-template-columns:1fr}}
 
 </style>
-<link rel="stylesheet" href="/admin/assets/editor.css?v=badges-12">
+<link rel="stylesheet" href="/admin/assets/editor.css?v=discord-live-13"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-13">
 </head><body class="admin-editor">
 <nav class="sidebar" aria-label="Admin-Bereiche">
   <div class="logo">cel<span>vin</span>.rip</div>
@@ -1557,6 +1573,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
   <button class="ni" data-section="entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m10 9 4 3-4 3"/></svg>Startbildschirm</button>
   <button class="ni" data-section="entry-background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m10 8 6 4-6 4z"/></svg>Start-Hintergrund</button>
   <button class="ni" data-section="background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Hintergrund</button>
+  <button class="ni" data-section="discord-connect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2"/></svg>Discord verbinden</button>
   <button class="ni" data-section="discord-badges"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3 3 5 6 1-4 5 1 7-6-3-6 3 1-7-4-5 6-1z"/></svg>Discord-Badges</button>
   <button class="ni" data-section="links"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Socials</button>
   <button class="ni" data-section="effects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Effekte</button>
@@ -1712,6 +1729,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
     <div class="fi"><label for="entry_bg_image_text">Bild-/GIF-URL</label><input type="url" id="entry_bg_image_text" value="${esc(c.entry_bg_image&&!c.entry_bg_image.startsWith('data:')?c.entry_bg_image:'')}" placeholder="https://…/background.gif" oninput="document.getElementById('entry_bg_image').value=this.value;document.getElementById('entry_bg_preview').src=this.value;document.getElementById('entry_bg_preview').style.display=this.value?'block':'none'"><input type="hidden" id="entry_bg_image" value="${esc(c.entry_bg_image||'')}"><img id="entry_bg_preview" alt="Bild-/GIF-Vorschau" src="${esc(c.entry_bg_image||'')}" style="display:${c.entry_bg_image?'block':'none'};width:100%;max-height:160px;object-fit:cover;margin-top:12px;border-radius:10px"></div><button type="button" id="entry_clear_media" class="bab">Eigene Medien entfernen</button>
   </div>
 
+  ${renderPresenceAdmin(c)}
   ${renderDiscordBadgeEditor(c.discord_badges)}
 
   <!-- HINTERGRUND -->
@@ -2197,6 +2215,11 @@ async function save(){
     avatar_border:document.getElementById("avatar_border").value,
     avatar_glow:document.getElementById("avatar_glow").checked,
     bio:document.getElementById("bio").value,
+    discord_user_id:document.getElementById("discord_user_id").value.trim(),
+    discord_presence_enabled:document.getElementById("discord_presence_enabled").checked,
+    discord_show_status:document.getElementById("discord_show_status").checked,
+    discord_show_activity:document.getElementById("discord_show_activity").checked,
+    discord_show_spotify:document.getElementById("discord_show_spotify").checked,
     badges,discord_badges:JSON.parse(document.getElementById("discord_badges").value),status:document.getElementById("status").value,
     accent:document.getElementById("accent").value,
     text_color:document.getElementById("text_color").value,
@@ -2306,7 +2329,7 @@ document.addEventListener("DOMContentLoaded",function(){
   try{renderFeatures();}catch(e){console.error(e);}
   try{bindAdminStudio();}catch(e){console.error(e);}
 });
-</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=badges-12"></script>
+</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=discord-live-13"></script>
 </body></html>`);
 });
 
@@ -2320,6 +2343,11 @@ app.post("/admin/save", requireAdminApi, async (req, res) => {
     const current = await getConfig();
     // Credentials are handled exclusively by /admin/password, never profile save.
     const { password, newPassword, confirmPassword, currentPassword, ...fields } = req.body;
+    if(fields.discord_user_id!==undefined){
+      if(typeof fields.discord_user_id!=='string'||(fields.discord_user_id&&!validDiscordId(fields.discord_user_id)))return res.status(400).json({ok:false,error:"Bitte eine gültige Discord-Nutzer-ID eingeben."});
+      if(!fields.discord_user_id)fields.discord_presence_enabled=false;
+    }
+    for(const field of ['discord_presence_enabled','discord_show_status','discord_show_activity','discord_show_spotify'])if(fields[field]!==undefined&&typeof fields[field]!=='boolean')return res.status(400).json({ok:false,error:"Ungültige Discord-Anzeigeeinstellung."});
     if(fields.discord_badges!==undefined){
       const allowed=new Set(discordBadgeCatalog.map(b=>b.id));
       if(!Array.isArray(fields.discord_badges)||fields.discord_badges.some(id=>typeof id!=='string'||!allowed.has(id)))return res.status(400).json({ok:false,error:"Bitte gültige Discord-Badges auswählen."});

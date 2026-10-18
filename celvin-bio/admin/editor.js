@@ -2,6 +2,7 @@
   'use strict';
   const sections = [
     ['profile','Profil','Name, Bio, Avatar und Badges für dein öffentliches Profil.','Deine Seite'],
+    ['discord-connect','Discord verbinden','Echten Discord-Status, Aktivitäten und Spotify auf deinem Profil anzeigen.'],
     ['discord-badges','Discord-Badges','Discord-Symbole auswählen und ihre Reihenfolge festlegen.'],
     ['links','Links & Socials','Verwalte deine Plattformen und die Reihenfolge deiner Links.'],
     ['design','Design','Farben, Schrift und Kartenstil deiner Seite.'],
@@ -160,6 +161,21 @@
       document.querySelectorAll('.discord-catalog-group').forEach(group=>group.hidden=![...group.querySelectorAll('.discord-catalog-card')].some(card=>!card.hidden));
       document.getElementById('discordBadgeResults').textContent=query?count+' Badges gefunden':'';
     });renderDiscordSelection();
+    const discordTest=document.getElementById('testDiscordConnection');
+    const discordStatus=document.getElementById('discordConnectionStatus');
+    discordTest.addEventListener('click',async()=>{
+      discordTest.disabled=true;discordStatus.textContent='Discord-Verbindung wird geprüft …';
+      const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),12000);
+      try{
+        const response=await fetch('/admin/discord/test',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:document.getElementById('discord_user_id').value.trim()}),signal:controller.signal});
+        const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'Verbindung konnte nicht geprüft werden.');
+        const labels={online:'Online',idle:'Abwesend',dnd:'Nicht stören',offline:'Offline / unsichtbar',unknown:'Status unbekannt'};
+        discordStatus.textContent='Verbunden: @'+result.profile.username+' · '+labels[result.profile.status]+(result.profile.spotify?' · hört '+result.profile.spotify.song:'')+'\nÄnderungen speichern, um deine Auswahl zu veröffentlichen.';
+        document.getElementById('discord_presence_enabled').checked=true;markDirty();
+      }catch(error){discordStatus.textContent=error.name==='AbortError'?'Zeitüberschreitung. Bitte erneut versuchen.':error.message;}
+      finally{clearTimeout(timeout);discordTest.disabled=false;}
+    });
+    document.getElementById('disconnectDiscord').addEventListener('click',()=>{document.getElementById('discord_user_id').value='';document.getElementById('discord_presence_enabled').checked=false;discordStatus.textContent='Verknüpfung entfernt. Änderungen speichern, um zu veröffentlichen.';markDirty();});
     const originalNav = window.navTo;
     window.navTo = function(id) {
       if (!document.getElementById('sec-'+id)) return;
