@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+ <defs>
+  <radialGradient id="surface" cx="32%" cy="30%"><stop stop-color="#dbd9d6"/><stop offset=".6" stop-color="#9b999e"/><stop offset="1" stop-color="#56545d"/></radialGradient>
+  <radialGradient id="shade" cx="19%" cy="34%" r="80%"><stop offset=".2" stop-color="#050505" stop-opacity="0"/><stop offset=".72" stop-color="#050505" stop-opacity=".3"/><stop offset="1" stop-color="#050505" stop-opacity=".96"/></radialGradient>
+  <filter id="texture"><feTurbulence type="fractalNoise" baseFrequency=".075" numOctaves="4" seed="21"/><feColorMatrix type="saturate" values="0"/><feComposite in2="SourceGraphic" operator="in"/><feBlend in="SourceGraphic" mode="multiply"/></filter>
+  <clipPath id="disc"><circle cx="120" cy="120" r="110"/></clipPath>
+ </defs>
+ <g clip-path="url(#disc)"><circle cx="120" cy="120" r="110" fill="url(#surface)" filter="url(#texture)"/>
+  <g fill="#393840" opacity=".23"><ellipse cx="85" cy="63" rx="28" ry="20"/><ellipse cx="69" cy="109" rx="20" ry="28"/><ellipse cx="129" cy="89" rx="33" ry="25"/><ellipse cx="149" cy="142" rx="28" ry="41"/><ellipse cx="94" cy="170" rx="32" ry="18"/><circle cx="176" cy="74" r="17"/></g>
+  <g fill="none" stroke="#d3d0d0" stroke-opacity=".18"><circle cx="70" cy="145" r="14"/><circle cx="146" cy="51" r="9"/><circle cx="121" cy="183" r="16"/><circle cx="48" cy="86" r="7"/><circle cx="161" cy="113" r="10"/></g>
+  <circle cx="120" cy="120" r="110" fill="url(#shade)"/>
+ </g>
+</svg>
