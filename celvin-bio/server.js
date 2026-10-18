@@ -1712,12 +1712,15 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
   <!-- HINTERGRUND -->
   <div class="sec" id="sec-background">
     <p class="st" style="margin-top:0">Hintergrund</p>
+    <div class="fi"><label>GIF / MP4 / Bild hochladen</label><input type="file" id="profile_media_file" accept="image/gif,image/png,image/jpeg,image/webp,video/mp4,video/webm" hidden><button type="button" class="upload-btn" onclick="document.getElementById('profile_media_file').click()">Datei wählen</button><p id="profile_media_status" class="td" role="status">GIF, MP4, WebM oder Bild · bis 25 MB. Der Hintergrundtyp wird automatisch gewählt.</p></div>
+    <div class="fi"><label for="profile_media_url">GIF-/MP4-Datei-URL</label><input type="url" id="profile_media_url" placeholder="https://…/background.gif oder .mp4"><button type="button" id="profile_media_apply" class="bab" style="margin-top:10px">URL übernehmen</button><p class="td">Direkter Link zur Datei. Danach Änderungen speichern.</p></div>
+
     <div class="tr"><div><div class="tl">Profilbild als Hintergrund</div><div class="td">Deaktivieren, um die Farben oder den Verlauf unten zu verwenden. Ein eigenes Bild oder Video hat Vorrang.</div></div><label class="sw"><input type="checkbox" id="bg_use_avatar" ${c.bg_use_avatar!==false?"checked":""}><span class="sl"></span></label></div><div id="bgp" class="bgp"></div>
     <div class="fi"><label>Typ</label><select id="bg_type" onchange="updBg()">
       <option value="solid" ${c.bg_type==="solid"?"selected":""}>Einfarbig</option>
       <option value="gradient" ${c.bg_type==="gradient"?"selected":""}>Gradient</option>
-      <option value="image" ${c.bg_type==="image"?"selected":""}>Bild</option>
-      <option value="video" ${c.bg_type==="video"?"selected":""}>Video URL</option>
+      <option value="image" ${c.bg_type==="image"?"selected":""}>Bild / GIF</option>
+      <option value="video" ${c.bg_type==="video"?"selected":""}>Video / MP4 / WebM</option>
     </select></div>
     <div id="bgf-solid" style="${c.bg_type!=="solid"?"display:none":""}">
       <div class="fi"><label>Farbe</label><div class="cf"><div class="cs"><input type="color" id="bg_color" value="${c.bg_color||"#0a0a0a"}" oninput="syncH('bg_color');updBg()"></div><input type="text" id="bg_color_h" value="${c.bg_color||"#0a0a0a"}" oninput="document.getElementById('bg_color').value=this.value;updBg()"></div></div>
@@ -2298,7 +2301,7 @@ document.addEventListener("DOMContentLoaded",function(){
   try{renderFeatures();}catch(e){console.error(e);}
   try{bindAdminStudio();}catch(e){console.error(e);}
 });
-</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=entry-media-8"></script>
+</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=background-9"></script>
 </body></html>`);
 });
 
