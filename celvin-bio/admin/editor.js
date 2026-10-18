@@ -2,6 +2,7 @@
   'use strict';
   const sections = [
     ['profile','Profil','Name, Bio, Avatar und Badges für dein öffentliches Profil.','Deine Seite'],
+    ['discord-badges','Discord-Badges','Discord-Symbole auswählen und ihre Reihenfolge festlegen.'],
     ['links','Links & Socials','Verwalte deine Plattformen und die Reihenfolge deiner Links.'],
     ['design','Design','Farben, Schrift und Kartenstil deiner Seite.'],
     ['entry','Startbildschirm','Eintritt aktivieren, Text und Farben ändern oder ein eigenes Bild hochladen.'],
@@ -129,6 +130,36 @@
         applyProfileMedia(value,kind);profileMediaStatus.textContent='URL übernommen. Änderungen speichern, um zu veröffentlichen.';
       }catch{profileMediaStatus.textContent='Bitte eine gültige Datei-URL eingeben.';}
     });
+    const badgeInput=document.getElementById('discord_badges');
+    let discordSelection=JSON.parse(badgeInput.value);
+    const badgeOptions=[...document.querySelectorAll('[data-discord-badge]')];
+    const selectedBadgeList=document.getElementById('selectedDiscordBadges');
+    function renderDiscordSelection(){
+      badgeInput.value=JSON.stringify(discordSelection);document.getElementById('discordBadgeCount').textContent=discordSelection.length;
+      selectedBadgeList.replaceChildren();
+      badgeOptions.forEach(input=>input.checked=discordSelection.includes(input.dataset.discordBadge));
+      if(!discordSelection.length){const empty=document.createElement('p');empty.className='td';empty.textContent='Noch keine Discord-Badges ausgewählt.';selectedBadgeList.append(empty);}
+      discordSelection.forEach((id,index)=>{
+        const option=badgeOptions.find(input=>input.dataset.discordBadge===id).closest('label');
+        const item=document.createElement('div');item.className='discord-selected-item';
+        const image=option.querySelector('img').cloneNode();image.width=26;image.height=26;
+        const name=document.createElement('span');name.textContent=option.querySelector('span').firstChild.textContent;
+        item.append(image,name);
+        [['↑',-1,'Nach vorne'],['↓',1,'Nach hinten'],['×',0,'Entfernen']].forEach(([text,delta,label])=>{
+          const button=document.createElement('button');button.type='button';button.className='bab';button.textContent=text;button.setAttribute('aria-label',name.textContent+': '+label);
+          button.disabled=delta<0&&index===0||delta>0&&index===discordSelection.length-1;
+          button.addEventListener('click',()=>{if(delta){[discordSelection[index],discordSelection[index+delta]]=[discordSelection[index+delta],discordSelection[index]];}else discordSelection.splice(index,1);renderDiscordSelection();markDirty();});item.append(button);
+        });selectedBadgeList.append(item);
+      });
+    }
+    badgeOptions.forEach(input=>input.addEventListener('change',()=>{const id=input.dataset.discordBadge;if(input.checked)discordSelection.push(id);else discordSelection=discordSelection.filter(value=>value!==id);renderDiscordSelection();markDirty();}));
+    document.getElementById('clearDiscordBadges').addEventListener('click',()=>{discordSelection=[];renderDiscordSelection();markDirty();});
+    document.getElementById('discordBadgeSearch').addEventListener('input',event=>{
+      const query=event.target.value.trim().toLocaleLowerCase('de');let count=0;
+      document.querySelectorAll('.discord-catalog-card').forEach(card=>{card.hidden=!card.dataset.search.toLocaleLowerCase('de').includes(query);if(!card.hidden)count++;});
+      document.querySelectorAll('.discord-catalog-group').forEach(group=>group.hidden=![...group.querySelectorAll('.discord-catalog-card')].some(card=>!card.hidden));
+      document.getElementById('discordBadgeResults').textContent=query?count+' Badges gefunden':'';
+    });renderDiscordSelection();
     const originalNav = window.navTo;
     window.navTo = function(id) {
       if (!document.getElementById('sec-'+id)) return;

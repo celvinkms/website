@@ -1,5 +1,6 @@
 const express = require("express");
 const {renderCleanProfile}=require("./clean-profile");
+const {catalog:discordBadgeCatalog,normalizeDiscordBadges,renderDiscordBadges,renderDiscordBadgeEditor}=require("./discord-badges");
 const session = require("express-session");
 const bcrypt = require("bcrypt");
 const { Pool } = require("pg");
@@ -98,6 +99,7 @@ const TEMPLATES = {
 const DEFAULT_CONFIG = {
   username: "username", pronouns: "", avatar_type: "emoji", avatar_emoji: "🖤", avatar_url: "",
   bio: "your bio goes here.\nmake it short. make it yours.",
+  discord_badges: [],
   badges: ["online", "de", "since 2024"], status: "online",
   ...TEMPLATES.dark,
   links: [
@@ -895,14 +897,14 @@ ${patternCSS}${animBg}
 .arr{margin-left:auto;font-size:.75rem;color:var(--m);transition:color .2s;flex-shrink:0}
 .link-btn:hover .arr{color:var(--lc,var(--a))}
 body.has-bg-video::after{display:none!important;background:none!important}body.has-bg-video.fx-bg-scanlines,body.has-bg-video.fx-bg-grid-strong,body.has-bg-video.fx-bg-dots-strong{background-image:none!important}.has-bg-video .card{background-image:none!important}body.intro-blur video[data-bg-video]{filter:blur(${videoBlur}px) brightness(.72) saturate(1.06)!important}
-${v4PublicCSS(c)}</style>${customCSS}${c.profile_theme === "grunge-emo" || youtubeVideoId(c.youtube_url) ? '<link rel="stylesheet" href="/profile/grunge.css?v=studio-2">' : ""}
+${v4PublicCSS(c)}</style><link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12">${customCSS}${c.profile_theme === "grunge-emo" || youtubeVideoId(c.youtube_url) ? '<link rel="stylesheet" href="/profile/grunge.css?v=studio-2">' : ""}
 </head><body class="${featureClasses} ${c.profile_theme === "grunge-emo" ? "grunge-emo" : ""}">
 ${bgVideoHtml}${particles}${glow}${v4PublicTopLayers(c)}
 <div class="card">
   <div class="av"><div class="avi">${avatar}<div class="st"></div></div></div>
   <h1 class="name">@<span>${c.username||"username"}</span></h1>
   ${c.pronouns?`<p class="pron">${c.pronouns}</p>`:""}
-  <div class="br">${badges}</div>
+  <div class="br">${badges}${renderDiscordBadges(c.discord_badges)}</div>
   <p class="bio">${bioLines}</p>
   <div class="dv"></div>
   <div class="lks">${links}</div>
@@ -1545,7 +1547,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
 @media(max-width:1250px){.previewDock{display:none}.main{max-width:none}}@media(max-width:760px){body{display:block}.sidebar{position:relative;width:auto;height:auto;min-height:0;display:grid;grid-template-columns:repeat(2,1fr)}.sf{display:none}.main{padding:1rem}.statGrid{grid-template-columns:repeat(2,1fr)}.adminHero h2{font-size:1.6rem}.featureTools{grid-template-columns:1fr}.badge-editor,.badge-row{grid-template-columns:1fr}}
 
 </style>
-<link rel="stylesheet" href="/admin/assets/editor.css?v=entry-media-8">
+<link rel="stylesheet" href="/admin/assets/editor.css?v=badges-12">
 </head><body class="admin-editor">
 <nav class="sidebar" aria-label="Admin-Bereiche">
   <div class="logo">cel<span>vin</span>.rip</div>
@@ -1555,6 +1557,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
   <button class="ni" data-section="entry"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m10 9 4 3-4 3"/></svg>Startbildschirm</button>
   <button class="ni" data-section="entry-background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m10 8 6 4-6 4z"/></svg>Start-Hintergrund</button>
   <button class="ni" data-section="background"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Hintergrund</button>
+  <button class="ni" data-section="discord-badges"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m12 3 3 5 6 1-4 5 1 7-6-3-6 3 1-7-4-5 6-1z"/></svg>Discord-Badges</button>
   <button class="ni" data-section="links"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Socials</button>
   <button class="ni" data-section="effects"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Effekte</button>
   <button class="ni" data-section="featurelab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="8"/></svg>Feature Lab</button>
@@ -1708,6 +1711,8 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
     <div class="fi"><label for="entry_bg_video">Video-URL (MP4 / WebM)</label><input type="url" id="entry_bg_video" value="${esc(c.entry_bg_video||'')}" placeholder="https://…/background.mp4"><video id="entry_video_preview" src="${esc(c.entry_bg_video||'')}" muted loop playsinline controls preload="metadata" style="display:${c.entry_bg_video?'block':'none'};width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-top:12px"></video></div>
     <div class="fi"><label for="entry_bg_image_text">Bild-/GIF-URL</label><input type="url" id="entry_bg_image_text" value="${esc(c.entry_bg_image&&!c.entry_bg_image.startsWith('data:')?c.entry_bg_image:'')}" placeholder="https://…/background.gif" oninput="document.getElementById('entry_bg_image').value=this.value;document.getElementById('entry_bg_preview').src=this.value;document.getElementById('entry_bg_preview').style.display=this.value?'block':'none'"><input type="hidden" id="entry_bg_image" value="${esc(c.entry_bg_image||'')}"><img id="entry_bg_preview" alt="Bild-/GIF-Vorschau" src="${esc(c.entry_bg_image||'')}" style="display:${c.entry_bg_image?'block':'none'};width:100%;max-height:160px;object-fit:cover;margin-top:12px;border-radius:10px"></div><button type="button" id="entry_clear_media" class="bab">Eigene Medien entfernen</button>
   </div>
+
+  ${renderDiscordBadgeEditor(c.discord_badges)}
 
   <!-- HINTERGRUND -->
   <div class="sec" id="sec-background">
@@ -2192,7 +2197,7 @@ async function save(){
     avatar_border:document.getElementById("avatar_border").value,
     avatar_glow:document.getElementById("avatar_glow").checked,
     bio:document.getElementById("bio").value,
-    badges,status:document.getElementById("status").value,
+    badges,discord_badges:JSON.parse(document.getElementById("discord_badges").value),status:document.getElementById("status").value,
     accent:document.getElementById("accent").value,
     text_color:document.getElementById("text_color").value,
     font:document.getElementById("font").value,
@@ -2301,7 +2306,7 @@ document.addEventListener("DOMContentLoaded",function(){
   try{renderFeatures();}catch(e){console.error(e);}
   try{bindAdminStudio();}catch(e){console.error(e);}
 });
-</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=background-9"></script>
+</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js?v=badges-12"></script>
 </body></html>`);
 });
 
@@ -2315,6 +2320,11 @@ app.post("/admin/save", requireAdminApi, async (req, res) => {
     const current = await getConfig();
     // Credentials are handled exclusively by /admin/password, never profile save.
     const { password, newPassword, confirmPassword, currentPassword, ...fields } = req.body;
+    if(fields.discord_badges!==undefined){
+      const allowed=new Set(discordBadgeCatalog.map(b=>b.id));
+      if(!Array.isArray(fields.discord_badges)||fields.discord_badges.some(id=>typeof id!=='string'||!allowed.has(id)))return res.status(400).json({ok:false,error:"Bitte gültige Discord-Badges auswählen."});
+      fields.discord_badges=normalizeDiscordBadges(fields.discord_badges);
+    }
     if (fields.youtube_url !== undefined) {
       const id = youtubeVideoId(fields.youtube_url);
       if (fields.youtube_url && !id) return res.status(400).json({ ok: false, error: "Bitte einen gültigen YouTube-Video-Link eingeben." });

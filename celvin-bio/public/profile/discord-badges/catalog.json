@@ -1,0 +1,159 @@
+[
+  {
+    "id": "nitro",
+    "label": "Nitro",
+    "group": "Standard",
+    "image": "/profile/discord-badges/nitro.png"
+  },
+  {
+    "id": "booster",
+    "label": "Server Booster",
+    "group": "Standard",
+    "image": "/profile/discord-badges/booster.png"
+  },
+  {
+    "id": "quest",
+    "label": "Quests",
+    "group": "Standard",
+    "image": "/profile/discord-badges/quest.png"
+  },
+  {
+    "id": "orbs",
+    "label": "Orbs",
+    "group": "Standard",
+    "image": "/profile/discord-badges/orbs.png"
+  },
+  {
+    "id": "legacy-name",
+    "label": "Legacy Username",
+    "group": "Standard",
+    "image": "/profile/discord-badges/legacy-name.png"
+  },
+  {
+    "id": "bug-hunter",
+    "label": "Bug Hunter",
+    "group": "Selten",
+    "image": "/profile/discord-badges/bug-hunter.png"
+  },
+  {
+    "id": "gold-bug-hunter",
+    "label": "Golden Bug Hunter",
+    "group": "Selten",
+    "image": "/profile/discord-badges/gold-bug-hunter.png"
+  },
+  {
+    "id": "staff",
+    "label": "Discord Staff",
+    "group": "Selten",
+    "image": "/profile/discord-badges/staff.png"
+  },
+  {
+    "id": "hypesquad-events",
+    "label": "HypeSquad Events",
+    "group": "Legacy",
+    "image": "/profile/discord-badges/hypesquad-events.png"
+  },
+  {
+    "id": "bravery",
+    "label": "HypeSquad Bravery",
+    "group": "Legacy",
+    "image": "/profile/discord-badges/bravery.png"
+  },
+  {
+    "id": "brilliance",
+    "label": "HypeSquad Brilliance",
+    "group": "Legacy",
+    "image": "/profile/discord-badges/brilliance.png"
+  },
+  {
+    "id": "balance",
+    "label": "HypeSquad Balance",
+    "group": "Legacy",
+    "image": "/profile/discord-badges/balance.png"
+  },
+  {
+    "id": "moderator",
+    "label": "Moderator Program Alumni",
+    "group": "Legacy",
+    "image": "/profile/discord-badges/moderator.png"
+  },
+  {
+    "id": "early-supporter",
+    "label": "Early Supporter",
+    "group": "Legacy",
+    "image": "/profile/discord-badges/early-supporter.png"
+  },
+  {
+    "id": "partner",
+    "label": "Partnered Server Owner",
+    "group": "Legacy",
+    "image": "/profile/discord-badges/partner.png"
+  },
+  {
+    "id": "last-meadow",
+    "label": "Last Meadow Online",
+    "group": "Legacy",
+    "image": "/profile/discord-badges/last-meadow.png"
+  },
+  {
+    "id": "gifting-patron",
+    "label": "Gifting · Patron",
+    "group": "Gifting",
+    "image": "/profile/discord-badges/gifting-patron.png"
+  },
+  {
+    "id": "gifting-champion",
+    "label": "Gifting · Champion",
+    "group": "Gifting",
+    "image": "/profile/discord-badges/gifting-champion.png"
+  },
+  {
+    "id": "gifting-luminary",
+    "label": "Gifting · Luminary",
+    "group": "Gifting",
+    "image": "/profile/discord-badges/gifting-luminary.png"
+  },
+  {
+    "id": "gifting-icon",
+    "label": "Gifting · Icon",
+    "group": "Gifting",
+    "image": "/profile/discord-badges/gifting-icon.png"
+  },
+  {
+    "id": "gifting-hero",
+    "label": "Gifting · Hero",
+    "group": "Gifting",
+    "image": "/profile/discord-badges/gifting-hero.png"
+  },
+  {
+    "id": "gifting-legend",
+    "label": "Gifting · Legend",
+    "group": "Gifting",
+    "image": "/profile/discord-badges/gifting-legend.png"
+  },
+  {
+    "id": "game-time",
+    "label": "Game Time",
+    "group": "Experimentell",
+    "image": "/profile/discord-badges/game-time.png"
+  },
+  {
+    "id": "streaming",
+    "label": "Streaming",
+    "group": "Experimentell",
+    "image": "/profile/discord-badges/streaming.png"
+  },
+  {
+    "id": "game-variety",
+    "label": "Game Variety",
+    "group": "Experimentell",
+    "image": "/profile/discord-badges/game-variety.png"
+  },
+  {
+    "id": "account-age",
+    "label": "Account Age",
+    "group": "Experimentell",
+    "image": "/profile/discord-badges/account-age.svg",
+    "note": "Symbolvorschau; die Hilfeseite zeigt dafür keine separate Grafik."
+  }
+]
