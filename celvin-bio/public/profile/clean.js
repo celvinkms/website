@@ -1,5 +1,18 @@
 (()=>{
  const button=document.getElementById('shareProfile'),status=document.getElementById('copyStatus');let timer;
+ const entry=document.getElementById('enterProfile'),stage=document.querySelector('.profile-stage');
+ if(entry){
+  stage.inert=true;
+  entry.addEventListener('click',()=>{
+   if(!document.body.classList.contains('entry-pending'))return;
+   stage.inert=false;document.body.classList.remove('entry-pending');
+   entry.classList.add('leaving');entry.disabled=true;
+   window.dispatchEvent(new Event('profile:enter'));
+   const heading=stage.querySelector('h1');heading.tabIndex=-1;heading.focus({preventScroll:true});
+   setTimeout(()=>{entry.hidden=true;},matchMedia('(prefers-reduced-motion: reduce)').matches?0:450);
+  });
+ }
+
  button.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(location.origin+location.pathname);status.textContent='Link kopiert';}catch{status.textContent=location.origin+location.pathname;}status.classList.add('visible');clearTimeout(timer);timer=setTimeout(()=>status.classList.remove('visible'),2500);});
  document.querySelectorAll('.socials .link-btn').forEach(link=>{
   if(link.tagName==='A')return;
@@ -44,8 +57,8 @@
   else{const script=document.createElement('script');script.src='https://www.youtube.com/iframe_api';script.async=true;script.onerror=()=>message('YouTube konnte nicht geladen werden. Nutze den YouTube-Link unten.');document.head.append(script);}
   loadTimer=setTimeout(()=>{if(!ready)message('YouTube lädt nicht. Prüfe deinen Inhaltsblocker oder öffne den Song über den Link unten.');},15000);
  }
- summary.addEventListener('click',event=>{
-  event.preventDefault();expanded=!expanded;
+ function setExpanded(open){
+  expanded=open;
   const start=details.getBoundingClientRect().height;
   if(animation){animation.cancel();animation=null;}
   details.open=true;
@@ -54,5 +67,7 @@
   if(matchMedia('(prefers-reduced-motion: reduce)').matches){details.open=expanded;return;}
   animation=details.animate([{height:start+'px'},{height:end+'px'}],{duration:320,easing:'cubic-bezier(.2,.7,.2,1)'});
   animation.onfinish=()=>{details.open=expanded;animation=null;};
- });
+ }
+ window.addEventListener('profile:enter',()=>setExpanded(true));
+ summary.addEventListener('click',event=>{event.preventDefault();setExpanded(!expanded);});
 })();
