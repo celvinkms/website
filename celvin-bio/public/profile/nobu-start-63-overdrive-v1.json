@@ -1,0 +1,19 @@
+{
+  "source": "User-supplied negatiiv OG - NOBU MP3",
+  "original_duration_s": 163.29142857142858,
+  "new_start_in_original_s": 63,
+  "edit": "Starts at exactly 1:03 in the original; 3 ms edge fades; loops the trimmed section",
+  "processing": "27 Hz high-pass; phase-aligned 135 Hz bass crossover; envelope-driven 8\u201322x drive; bass distortion 90% hard clipping / 10% soft saturation, 94% wet blend; lower clipping threshold 0.65; 2x oversampling; 3 ms lookahead limiter; two-pass loudness normalization",
+  "master_target_lufs": -12.5,
+  "master_target_true_peak_dbtp": -1.8,
+  "encoded_loudness_lufs": -12.5,
+  "encoded_true_peak_dbtp": -7.27,
+  "encoded_sample_peak_dbfs": -7.6026611328125,
+  "bass_to_mid_increase_db": 6.09,
+  "distortion_probe_harmonics_increase_vs_v2_db": 4.96,
+  "duration_s": 100.29142857142857,
+  "sample_rate": 44100,
+  "channels": 2,
+  "bitrate_kbps": 256,
+  "file_bytes": 3211702
+}
