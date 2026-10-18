@@ -1,3 +1,4 @@
+@font-face{font-family:'Manrope';font-style:normal;font-weight:400 700;font-display:swap;src:url('/profile/fonts/manrope-latin.woff2') format('woff2')}
 /* Admin-only editor; public profile styles stay independent. */
 .admin-editor [hidden]{display:none!important}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 body.admin-editor::before,body.admin-editor::after{display:none;content:none}
@@ -86,3 +87,5 @@ body.admin-editor.studio-v2{--bg:#090a0d;--s:#111216;--s2:#191b21;--b:#25272f;--
 .admin-editor #sec-entry input[type=number]{width:100%;background:#0b0d11;color:#dedfe6;border:1px solid #2a2d37;border-radius:8px;padding:10px 12px;font:12px system-ui}.admin-editor #sec-entry input[type=color]{width:100%;height:40px;padding:4px;background:#0b0d11;border:1px solid #2a2d37;border-radius:8px;cursor:pointer}
 
 .admin-editor #sec-entry-background input[type=range]{width:calc(100% - 55px);accent-color:#c5c8d5;margin-right:12px;vertical-align:middle}
+
+body.admin-editor{font-family:'Manrope',system-ui,sans-serif;font-synthesis:none;text-rendering:optimizeLegibility}.admin-editor :is(.ni,.pt,.st,.fi label,input,textarea,select,button,.tl,.td,.editor-intro h2,.editor-intro p,.editor-section-note,.previewTop){font-family:'Manrope',system-ui,sans-serif}.admin-editor :is(#custom_css,#custom_head,#custom_js){font-family:ui-monospace,monospace}.admin-editor :is(input[type=text],input[type=url],input[type=password],textarea,select){font-size:13px}
