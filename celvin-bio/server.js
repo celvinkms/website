@@ -19,6 +19,7 @@ const BG_VIDEO_UPLOAD_TMP_PATH = path.join(os.tmpdir(), "celvin-bg-video-upload.
 let bgVideoCacheKey = "";
 let bgVideoCachePromise = null;
 
+app.use("/admin/assets", express.static(path.join(__dirname, "admin")));
 app.use(express.json({ limit: "400mb" }));
 app.use(express.urlencoded({ extended: true, limit: "400mb" }));
 app.use(session({ secret: process.env.SESSION_SECRET || "celvin-secret-2024", resave: false, saveUninitialized: false, cookie: { maxAge: 86400000 } }));
@@ -1286,7 +1287,7 @@ function field(id,label,type,help){var v=V5_CFG[id]; if(type==='check')return '<
 function fxToggle(key,label){return '<label class="v5-toggle"><span>'+h(label)+'</span><label class="sw"><input type="checkbox" data-v5fx="'+h(key)+'" '+(V5_CFG.v5_fx&&V5_CFG.v5_fx[key]?'checked':'')+'><span class="sl"></span></label></label>';}
 function panel(title,body){return '<div class="v5-admin-panel"><h3>'+h(title)+'</h3>'+body+'</div>';}
 function addNav(id,label){var side=document.querySelector('.sidebar .sf')||document.querySelector('.sidebar');if(!side||document.querySelector('[data-section="'+id+'"]'))return;var b=document.createElement('button');b.type='button';b.className='ni';b.dataset.section=id;b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.8 6 6.2.8-4.5 4.3 1.1 6.1L12 16.1 6.4 19.2l1.1-6.1L3 8.8 9.2 8z"/></svg><span>'+label+'</span>';side.parentNode.insertBefore(b,side);b.addEventListener('click',function(){navTo(id);document.querySelectorAll('.ni').forEach(x=>x.classList.remove('active'));b.classList.add('active')});}
-function addSection(id,html){var main=document.querySelector('.main form')||document.querySelector('.main');if(!main||document.getElementById('sec-'+id))return;var sec=document.createElement('section');sec.className='sec';sec.id='sec-'+id;sec.innerHTML=html;main.insertBefore(sec,main.querySelector('.sbtn')||null);}
+function addSection(id,html){var main=document.querySelector('.main');if(!main||document.getElementById('sec-'+id))return;var sec=document.createElement('section');sec.className='sec';sec.id='sec-'+id;sec.innerHTML=html;main.insertBefore(sec,main.querySelector('.sbtn')||null);}
 function buildLab(){return '<div class="v5-admin-shell"><div class="v5-hero"><h2>V5 Extreme Experience</h2><p>Component engine, command menu, micro sections, reactions, secret unlocks, aura modules and cinematic profile effects.</p><div class="v5-actions"><button type="button" class="bab" onclick="v5PresetUltra()">Ultra Preset</button><button type="button" class="bab" onclick="v5PresetDating()">Dating Preset</button><button type="button" class="bab" onclick="v5PresetCreator()">Creator Preset</button><button type="button" class="bab" onclick="v5RunAudit()">Audit</button></div></div><div class="v5-score" id="v5Score"><div><b>--</b><span>score</span></div><div><b>--</b><span>modules</span></div><div><b>--</b><span>links</span></div><div><b>--</b><span>badges</span></div></div><div class="v5-admin-grid">'+panel('Core',field('v5_enabled','V5 Public Suite','check','aktiviert alle neuen public module')+field('v5_nav_enabled','Bottom Nav + CMD','check','dock unten')+field('v5_marquee_text','Top Marquee'))+panel('Aura / Tags',field('v5_aura_enabled','Aura Meter','check','visueller energy balken')+field('v5_aura_title','Aura Titel')+field('v5_aura_score','Aura Score','number','0-100')+field('v5_aura_text','Aura Text')+field('v5_tags_title','Tags Titel')+field('v5_tags','Tags','area','eine Zeile pro Tag'))+panel('Highlights / Services',field('v5_highlights_title','Highlights Titel')+field('v5_highlights','Highlights','area','Titel|Wert')+field('v5_services_title','Services Titel')+field('v5_services','Services','area','Name|Preis|Beschreibung'))+panel('Gallery / Feed',field('v5_gallery_title','Gallery Titel')+field('v5_gallery','Gallery','area','Label|BildURL|LinkURL')+field('v5_feed_title','Feed Titel')+field('v5_feed','Feed','area','Titel|Text|Datum'))+panel('FAQ / Countdown',field('v5_faq_title','FAQ Titel')+field('v5_faq','FAQ','area','Frage|Antwort')+field('v5_countdown_enabled','Countdown','check','Event Timer')+field('v5_countdown_title','Countdown Titel')+field('v5_countdown_date','Datum','text','YYYY-MM-DDTHH:MM:SS'))+panel('Playlist / Terminal',field('v5_playlist_title','Playlist Titel')+field('v5_playlist','Songs','area','Song|Artist|URL')+field('v5_terminal_enabled','Terminal','check','fake terminal')+field('v5_terminal_text','Terminal Text','area','mehrzeilig'))+panel('Secret / Reactions',field('v5_secret_enabled','Secret Section','check','per code freischaltbar')+field('v5_secret_code','Secret Code')+field('v5_secret_title','Secret Titel')+field('v5_secret_text','Secret Text','area')+field('v5_reactions_enabled','Reactions','check','Besucher können reagieren')+field('v5_reactions_title','Reaction Titel')+field('v5_reactions','Reaction Buttons','area','eine Zeile pro Emoji/Text'))+panel('Cinematic FX','<div class="v5-switch-grid">'+fxToggle('floating_orb','Floating Aura Orb')+fxToggle('mouse_spotlight','Mouse Spotlight')+fxToggle('soft_grain','Soft Film Grain')+fxToggle('premium_aura','Premium Aura Shadow')+fxToggle('link_magnet','Magnetic Links')+fxToggle('badge_rainbow','Rainbow Badges')+fxToggle('tilt_avatar','Avatar Tilt')+fxToggle('audio_glass','Glass Audio Widget')+'</div>')+'</div></div>';}
 function buildForge(){return '<div class="v5-admin-grid">'+panel('One Click Theme Forge','<div class="v5-matrix"><div class="v5-preset" onclick="v5Theme(\\'obsidian\\')"><b>Obsidian</b><span>black luxury</span></div><div class="v5-preset" onclick="v5Theme(\\'angel\\')"><b>Angel</b><span>white clean</span></div><div class="v5-preset" onclick="v5Theme(\\'blood\\')"><b>Blood</b><span>vampire red</span></div><div class="v5-preset" onclick="v5Theme(\\'ice\\')"><b>Ice</b><span>blue glass</span></div><div class="v5-preset" onclick="v5Theme(\\'toxic\\')"><b>Toxic</b><span>green venom</span></div><div class="v5-preset" onclick="v5Theme(\\'egirl\\')"><b>Egirl</b><span>pink anime vibe</span></div></div>')+panel('Micro Pages','<div class="v5-plugin-list"><div class="v5-plugin"><span>Public JSON</span><code>/api/v5-profile</code></div><div class="v5-plugin"><span>Embed Card</span><code>/embed/card</code></div><div class="v5-plugin"><span>Identity SVG</span><code>/identity-card.svg</code></div><div class="v5-plugin"><span>Badge SVG</span><code>/badge.svg?text=VIP</code></div></div>')+panel('Automation','<button type="button" class="bab" onclick="v5AutoBio()">Bio füllen</button><button type="button" class="bab" onclick="v5AutoBadges()">Premium Badges</button><button type="button" class="bab" onclick="v5ListRestore()">Snapshots Restore</button><div id="v5RestoreList" class="v5-small" style="margin-top:10px"></div>')+'</div>';}
 function collect(){var out={};Object.keys(V5_CFG).forEach(function(k){if(k==='v5_fx')return;var el=document.getElementById('v5_'+k);if(!el)return;out[k]=el.type==='checkbox'?el.checked:el.value});out.v5_fx={};document.querySelectorAll('[data-v5fx]').forEach(function(el){out.v5_fx[el.dataset.v5fx]=el.checked});return out;}
@@ -1387,7 +1388,7 @@ app.get("/admin/dashboard", requireAuth, async (req, res) => {
 
   const platformsJson = safeJson(PLATFORMS);
 
-  res.send(`<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Dashboard</title>
+  res.send(`<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Profil bearbeiten · celvin.rip</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1501,8 +1502,9 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
 @media(max-width:1250px){.previewDock{display:none}.main{max-width:none}}@media(max-width:760px){body{display:block}.sidebar{position:relative;width:auto;height:auto;min-height:0;display:grid;grid-template-columns:repeat(2,1fr)}.sf{display:none}.main{padding:1rem}.statGrid{grid-template-columns:repeat(2,1fr)}.adminHero h2{font-size:1.6rem}.featureTools{grid-template-columns:1fr}.badge-editor,.badge-row{grid-template-columns:1fr}}
 
 </style>
-</head><body>
-<nav class="sidebar">
+<link rel="stylesheet" href="/admin/assets/editor.css">
+</head><body class="admin-editor">
+<nav class="sidebar" aria-label="Admin-Bereiche">
   <div class="logo">cel<span>vin</span>.rip</div>
   <button class="ni active" data-section="templates"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Templates</button>
   <button class="ni" data-section="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>Profil</button>
@@ -1519,20 +1521,12 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
 
 <main class="main">
 
-  <section class="adminHero">
-    <div class="eyebrow">v3 admin studio</div>
-    <h2>Control Room für deine Bio Page</h2>
-    <p>Neues Dashboard Design mit Live Preview, Command Palette, Quick Actions, 150 Feature-Toggles, Template Presets und saubererem Editing Workflow.</p>
-    <div class="heroActions"><button class="heroBtn primary" onclick="save()">Speichern</button><button class="heroBtn" onclick="refreshPreview()">Preview refresh</button><button class="heroBtn" onclick="togglePreviewDock()">Preview an/aus</button><button class="heroBtn" onclick="openCommandPalette()">Command Palette</button><button class="heroBtn" onclick="randomAccent()">Random Accent</button><button class="heroBtn" onclick="exportDraftConfig()">Export JSON</button></div>
-  </section>
-  <section class="statGrid">
-    <div class="statCard"><b>150</b><span>Feature Toggles</span></div>
-    <div class="statCard"><b>${Object.keys(TEMPLATES).length}</b><span>Templates</span></div>
-    <div class="statCard"><b>${(c.links||[]).length}</b><span>Social Links</span></div>
-    <div class="statCard"><b>${c.views||0}</b><span>Views</span></div>
-  </section>
-  <div class="adminSearchbar"><input id="globalAdminSearch" type="text" placeholder="Suche Section / Feature / Setting... z.B. badge, audio, template"><button onclick="openCommandPalette()">⌘K</button><button onclick="navTo('featurelab')">Features</button><button onclick="navTo('advanced')">Code</button></div>
-  <div class="ph"><h1 class="pt" id="pt">Templates</h1><div class="pbtns"><a href="/" target="_blank" class="pb">→ Vorschau</a><button class="pb" onclick="save()">✓ Speichern</button></div></div>
+  <div class="editor-topline"><span>Workspace / <strong>Dein Profil</strong></span><a href="/" target="_blank" rel="noopener">celvin.rip ↗</a></div>
+  <section class="editor-intro"><div class="eyebrow">DEINE SEITE. DEIN STIL.</div><h2>Mach dein Profil zu deinem.</h2><p>Inhalte bearbeiten, deinen Look anpassen und Änderungen veröffentlichen — alles an einem Ort.</p></section>
+  <div class="editor-toolbar"><div class="editor-search"><label for="editorSearch" class="sr-only">Bereiche suchen</label><input id="editorSearch" type="text" placeholder="Bereich suchen …" autocomplete="off"><kbd>Enter ↵</kbd></div><button class="editor-button" type="button" onclick="togglePreviewDock()">Vorschau</button><button class="editor-button" type="button" onclick="openCommandPalette()" aria-label="Befehlssuche öffnen">Strg K</button></div>
+  <p id="searchResults" role="status" class="sr-only"></p>
+  <header class="ph"><h1 class="pt" id="pt">Profil</h1><div class="editor-actions"><span id="saveStatus" role="status" aria-live="polite">Keine offenen Änderungen</span><button type="button" class="editor-button primary" data-save onclick="save()">Änderungen speichern</button></div></header>
+  <div id="saveError" class="editor-feedback" role="alert"></div>
 
   <!-- TEMPLATES -->
   <div class="sec active" id="sec-templates">
@@ -1770,16 +1764,22 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
   <!-- SICHERHEIT -->
   <div class="sec" id="sec-security">
     <p class="st" style="margin-top:0">Passwort ändern</p>
-    <div class="fi"><label>Neues Passwort</label><input type="password" id="newPassword" placeholder="leer lassen = nicht ändern"></div>
-    <div class="fi"><label>Bestätigen</label><input type="password" id="confirmPassword" placeholder="wiederholen"></div>
+    <p class="editor-security-note">Profiländerungen werden separat gespeichert. Dein Passwort wird nur über diesen Button geändert.</p>
+    <form id="passwordForm">
+      <div class="fi"><label for="currentPassword">Aktuelles Passwort</label><input type="password" id="currentPassword" name="currentPassword" autocomplete="current-password" required></div>
+      <div class="fi"><label for="newPassword">Neues Passwort</label><input type="password" id="newPassword" name="newPassword" autocomplete="new-password" minlength="8" maxlength="72" required placeholder="Mindestens 8 Zeichen"></div>
+      <div class="fi"><label for="confirmPassword">Neues Passwort bestätigen</label><input type="password" id="confirmPassword" name="confirmPassword" autocomplete="new-password" required></div>
+      <button type="submit" class="editor-button">Passwort ändern</button>
+      <p id="passwordStatus" class="editor-password-status" role="status" aria-live="polite"></p>
+    </form>
   </div>
 
-  <button class="sbtn" onclick="save()">Speichern & live schalten ✓</button>
+
 
 </main>
 <aside class="previewDock" id="previewDock">
-  <div class="previewTop"><span>Live Preview</span><div><button onclick="refreshPreview()">Reload</button><button onclick="togglePreviewDock()">Hide</button></div></div>
-  <iframe class="previewFrame" id="livePreviewFrame" src="/" loading="lazy"></iframe>
+  <div class="previewTop"><span><i class="editor-live-dot"></i>Deine veröffentlichte Seite</span><div><button onclick="refreshPreview()" aria-label="Vorschau neu laden">↻</button><button onclick="togglePreviewDock()" aria-label="Vorschau ausblenden">✕</button></div></div><p class="preview-caption">Zeigt den zuletzt gespeicherten Stand.</p>
+  <iframe class="previewFrame" id="livePreviewFrame" title="Vorschau deiner veröffentlichten Profilseite" src="/" loading="lazy"></iframe>
 </aside>
 <div class="cmdOverlay" id="cmdOverlay" onclick="if(event.target.id==='cmdOverlay')closeCommandPalette()">
   <div class="cmdBox"><input id="cmdInput" placeholder="Befehl suchen..." autocomplete="off"><div id="cmdList"></div></div>
@@ -2054,7 +2054,7 @@ function handleAudioUpload(input){
   if(file.size>1024*1024*1024){alert("Datei zu groß! Maximal 1 GB.");return;}
   const reader=new FileReader();
   reader.onload=function(e){
-    document.getElementById("audio_url").value=e.target.result;
+    document.getElementById("audio_url").value=e.target.result;markDirty();
     document.getElementById("audio_url_text").value="";
     document.getElementById("audio_filename").textContent="✓ "+file.name;
   };
@@ -2074,7 +2074,7 @@ function handleImgUpload(input,hiddenId,previewId,filenameId){
       canvas.width=w;canvas.height=h;
       canvas.getContext("2d").drawImage(img,0,0,w,h);
       const b64=canvas.toDataURL("image/jpeg",0.85);
-      document.getElementById(hiddenId).value=b64;
+      document.getElementById(hiddenId).value=b64;markDirty();
       const prev=document.getElementById(previewId);
       if(prev){prev.src=b64;prev.style.display="block";}
       const fn=document.getElementById(filenameId);
@@ -2106,8 +2106,12 @@ function activateFeaturePreset(name){
 }
 
 async function save(){
-  const pw=document.getElementById("newPassword").value,pw2=document.getElementById("confirmPassword").value;
-  if(pw&&pw!==pw2){alert("Passwörter stimmen nicht überein!");return}
+  if(editorSaving)return;
+  const revision=editorRevision;
+  editorSaving=true;setSaveBusy(true);
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),25000);
+  try {
   const data={
     username:document.getElementById("username").value,
     pronouns:document.getElementById("pronouns").value,
@@ -2150,17 +2154,33 @@ async function save(){
     bg_video_url:document.getElementById("bg_video_url").value,
     bg_overlay_opacity:parseFloat(document.getElementById("bg_overlay_opacity").value||0.3),
     feature_flags:featureFlags,
-    links,newPassword:pw
+    links
   };
-  const r=await fetch("/admin/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
-  if(r.ok){const t=document.getElementById("toast");t.classList.add("show");markClean();refreshPreview();setTimeout(()=>t.classList.remove("show"),2500)}
+  const r=await fetch("/admin/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data),signal:controller.signal});
+  if(r.status===401||r.redirected)throw new Error("Deine Sitzung ist abgelaufen. Bitte melde dich unter /admin erneut an. Deine Eingaben bleiben hier erhalten.");
+  const result=await r.json().catch(()=>({}));
+  if(!r.ok||result.ok!==true)throw new Error(result.error||"Speichern fehlgeschlagen ("+r.status+"). Bitte erneut versuchen.");
+  if(revision===editorRevision)markClean();
+  else setSaveStatus("Gespeichert. Weitere Änderungen sind noch offen.","dirty");
+  document.getElementById("saveError").classList.remove("visible");
+  const t=document.getElementById("toast");t.textContent="Änderungen gespeichert";t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2500);
+  refreshPreview();
+  } catch(error) {
+    const message=error.name==="AbortError"?"Speichern dauert zu lange. Prüfe deine Verbindung und versuche es erneut.":error.message;
+    const box=document.getElementById("saveError");box.textContent=message;box.classList.add("visible");
+    setSaveStatus("Nicht gespeichert — erneut versuchen","error");
+  } finally {clearTimeout(timeout);editorSaving=false;setSaveBusy(false);}
 }
 
 
 function refreshPreview(){var f=document.getElementById("livePreviewFrame"); if(f)f.src="/?preview="+Date.now();}
 function togglePreviewDock(){var d=document.getElementById("previewDock"); if(d)d.classList.toggle("hidden");}
-function markDirty(){var btn=document.querySelector(".pb[onclick='save()']"); if(btn){btn.classList.add("dirty");btn.textContent="● Ungespeichert";}}
-function markClean(){var btn=document.querySelector(".pb[onclick='save()']"); if(btn){btn.classList.remove("dirty");btn.textContent="✓ Speichern";}}
+var editorRevision=0,editorSaving=false;
+window.editorDirty=false;
+function setSaveStatus(message,state){var el=document.getElementById("saveStatus");el.textContent=message;el.dataset.state=state;}
+function setSaveBusy(busy){document.querySelectorAll("[data-save]").forEach(function(btn){btn.disabled=busy;btn.textContent=busy?"Wird gespeichert …":"Änderungen speichern";});if(busy)setSaveStatus("Änderungen werden gespeichert …","saving");}
+function markDirty(){editorRevision++;window.editorDirty=true;if(!editorSaving)setSaveStatus("Ungespeicherte Änderungen","dirty");}
+function markClean(){window.editorDirty=false;setSaveStatus("Gespeichert · "+new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}),"saved");}
 function randomAccent(){var colors=["#c8ff00","#ff2d78","#00d4ff","#a78bfa","#fbbf24","#39ff14","#ff003c","#67e8f9","#fb7185","#ffffff"];var c=colors[Math.floor(Math.random()*colors.length)];document.getElementById("accent").value=c;document.getElementById("accent_h").value=c;document.documentElement.style.setProperty("--a",c);markDirty();}
 var commandActions=[
   ["Templates öffnen","1",function(){navTo("templates")}],["Profil bearbeiten","2",function(){navTo("profile")}],["Design öffnen","3",function(){navTo("design")}],["Background öffnen","4",function(){navTo("background")}],["Socials öffnen","5",function(){navTo("links")}],["Effekte öffnen","6",function(){navTo("effects")}],["Feature Lab öffnen","7",function(){navTo("featurelab")}],["Advanced Code öffnen","8",function(){navTo("advanced")}],["Security öffnen","9",function(){navTo("security")}],["Speichern","Ctrl+S",function(){save()}],["Preview refresh","R",function(){refreshPreview()}],["Preview an/aus","P",function(){togglePreviewDock()}],["Random Accent","A",function(){randomAccent()}],["Neon Feature Preset","N",function(){navTo("featurelab");activateFeaturePreset("neon")}],["Clean Feature Preset","C",function(){navTo("featurelab");activateFeaturePreset("clean")}],["Export JSON","E",function(){exportDraftConfig()}]
@@ -2170,7 +2190,7 @@ function closeCommandPalette(){var o=document.getElementById("cmdOverlay");if(o)
 function renderCommands(q){var list=document.getElementById("cmdList");if(!list)return;q=(q||"").toLowerCase();var filtered=commandActions.filter(function(a){return !q||a[0].toLowerCase().includes(q)});list.innerHTML=filtered.map(function(a,i){return '<div class="cmdItem" data-cmd="'+i+'"><span>'+a[0]+'</span><kbd>'+a[1]+'</kbd></div>';}).join("");list.querySelectorAll(".cmdItem").forEach(function(el){el.addEventListener("click",function(){var a=filtered[Number(el.dataset.cmd)];if(a){a[2]();closeCommandPalette();}});});}
 function exportDraftConfig(){try{var obj={username:document.getElementById("username").value,bio:document.getElementById("bio").value,badges:badges,links:links,feature_flags:featureFlags,accent:document.getElementById("accent").value,font:document.getElementById("font").value,bg_type:document.getElementById("bg_type").value,exported_at:new Date().toISOString()};var blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="bio-config-draft.json";a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},500);}catch(e){alert("Export Fehler: "+e.message)}}
 function bindAdminStudio(){
-  document.querySelectorAll("input,textarea,select").forEach(function(el){el.addEventListener("input",markDirty);el.addEventListener("change",markDirty);});
+
   var cmd=document.getElementById("cmdInput"); if(cmd)cmd.addEventListener("input",function(){renderCommands(this.value)});
   var gs=document.getElementById("globalAdminSearch"); if(gs)gs.addEventListener("input",function(){var q=this.value.toLowerCase().trim(); if(!q)return; var map={badge:"profile",badges:"profile",avatar:"profile",audio:"effects",music:"effects",song:"effects",spotify:"profile",background:"background",bg:"background",font:"design",color:"design",farbe:"design",link:"links",social:"links",template:"templates",feature:"featurelab",css:"advanced",js:"advanced",code:"advanced",password:"security"}; Object.keys(map).some(function(k){if(q.includes(k)){navTo(map[k]);return true}return false});});
   document.addEventListener("keydown",function(e){if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();openCommandPalette()} if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){e.preventDefault();save()} if(e.key==="Escape")closeCommandPalette();});
@@ -2196,19 +2216,52 @@ document.addEventListener("DOMContentLoaded",function(){
   try{renderFeatures();}catch(e){console.error(e);}
   try{bindAdminStudio();}catch(e){console.error(e);}
 });
-</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}${v6AdminPlugin(c)}
+</script>${v4AdminPlugin(c)}${v5AdminPlugin(c)}<script src="/admin/assets/editor.js"></script>
 </body></html>`);
 });
 
-app.post("/admin/save", requireAuth, async (req, res) => {
-  const current = await getConfig();
-  const { newPassword, ...fields } = req.body;
-  if (typeof fields.bg_video_url === "string" && fields.bg_video_url.startsWith("data:video")) {
-    fields.bg_video_url = current.bg_video_url && current.bg_video_url.startsWith("/asset/bg-video") ? current.bg_video_url : "";
+function requireAdminApi(req, res, next) {
+  if (req.session.authenticated) return next();
+  return res.status(401).json({ ok: false, error: "Sitzung abgelaufen. Bitte erneut anmelden." });
+}
+
+app.post("/admin/save", requireAdminApi, async (req, res) => {
+  try {
+    const current = await getConfig();
+    // Credentials are handled exclusively by /admin/password, never profile save.
+    const { password, newPassword, confirmPassword, currentPassword, ...fields } = req.body;
+    if (typeof fields.bg_video_url === "string" && fields.bg_video_url.startsWith("data:video")) {
+      fields.bg_video_url = current.bg_video_url && current.bg_video_url.startsWith("/asset/bg-video") ? current.bg_video_url : "";
+    }
+    // Merge only profile fields so a concurrent password change is never reverted.
+    await pool.query("UPDATE bio_config SET data = data || $1::jsonb", [JSON.stringify(fields)]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Profil speichern fehlgeschlagen:", error.code || error.name);
+    res.status(500).json({ ok: false, error: "Die Datenbank konnte deine Änderungen nicht speichern. Bitte erneut versuchen." });
   }
-  const updated = { ...current, ...fields, password: newPassword ? await bcrypt.hash(newPassword, 10) : current.password };
-  await saveConfig(updated);
-  res.json({ ok: true });
+});
+
+app.post("/admin/password", requireAdminApi, async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string" || newPassword !== confirmPassword) {
+      return res.status(400).json({ ok: false, error: "Bitte alle Passwortfelder ausfüllen und das neue Passwort bestätigen." });
+    }
+    if (newPassword.length < 8 || Buffer.byteLength(newPassword, "utf8") > 72) {
+      return res.status(400).json({ ok: false, error: "Das neue Passwort muss mindestens 8 Zeichen und höchstens 72 UTF-8-Bytes enthalten." });
+    }
+    const current = await getConfig();
+    if (!await bcrypt.compare(currentPassword, current.password)) {
+      return res.status(403).json({ ok: false, error: "Das aktuelle Passwort ist nicht korrekt." });
+    }
+    // Only update the password key, preserving concurrent profile edits.
+    await pool.query("UPDATE bio_config SET data = jsonb_set(data, '{password}', $1::jsonb)", [JSON.stringify(await bcrypt.hash(newPassword, 10))]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Passwort ändern fehlgeschlagen:", error.code || error.name);
+    res.status(500).json({ ok: false, error: "Das Passwort konnte nicht gespeichert werden. Bitte erneut versuchen." });
+  }
 });
 
 app.get("/go/:idx", async (req, res) => {
