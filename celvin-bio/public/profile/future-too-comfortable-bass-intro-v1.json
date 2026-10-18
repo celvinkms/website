@@ -1,0 +1,18 @@
+{
+  "source": "User-supplied Future - Too Comfortable MP3",
+  "original_duration_s": 238.49795918367346,
+  "new_start_in_original_s": 140.1951247165533,
+  "edit": "Circular reordering; original outro/intro crossfaded 160 ms; 3 ms edge fades",
+  "processing": "27 Hz high-pass; phase-aligned 135 Hz bass crossover; envelope-driven 2.8\u20134.6x soft saturation, 2x oversampling, parallel bass boost; 3 ms lookahead limiter; two-pass loudness normalization",
+  "master_target_lufs": -12.5,
+  "master_target_true_peak_dbtp": -1.8,
+  "encoded_loudness_lufs": -12.49,
+  "encoded_true_peak_dbtp": -1.79,
+  "encoded_sample_peak_dbfs": -2.0414395332336426,
+  "bass_to_mid_increase_db": 2.26,
+  "duration_s": 238.33795918367346,
+  "sample_rate": 44100,
+  "channels": 2,
+  "bitrate_kbps": 256,
+  "file_bytes": 7628704
+}
