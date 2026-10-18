@@ -127,9 +127,9 @@ async function applyRequestedNobuSong(pool) {
     await client.query('BEGIN');
     const {rows}=await client.query('SELECT id, data FROM bio_config ORDER BY id LIMIT 1 FOR UPDATE');
     const current=rows[0];
-    if(current&&current.data._soundtrack_nobu_start_63_v1!=='applied'){
-      await client.query('INSERT INTO bio_snapshots(label,data) VALUES($1,$2)',['Vor NOBU ab 1:03',current.data]);
-      const update={_soundtrack_nobu_start_63_v1:'applied',youtube_url:'',audio_url:'/profile/nobu-start-63-overdrive-v1.mp3',audio_title:'negatiiv OG — NOBU',audio_loop:true};
+    if(current&&current.data._soundtrack_nobu_start_64_soft_v2!=='applied'){
+      await client.query('INSERT INTO bio_snapshots(label,data) VALUES($1,$2)',['Vor NOBU ab 1:04 mit milder Sättigung',current.data]);
+      const update={_soundtrack_nobu_start_64_soft_v2:'applied',youtube_url:'',audio_url:'/profile/nobu-start-64-soft-v2.mp3',audio_title:'negatiiv OG — NOBU',audio_loop:true};
       await client.query('UPDATE bio_config SET data = data || $1::jsonb WHERE id = $2',[JSON.stringify(update),current.id]);
     }
     await client.query('COMMIT');
