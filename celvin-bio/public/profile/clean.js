@@ -12,12 +12,44 @@
  });
  const details=document.querySelector('.soundtrack');if(!details)return;
  const summary=details.querySelector('summary');let animation=null,expanded=details.open;
- function stopPlayback(){details.querySelectorAll('audio,video').forEach(media=>media.pause());const frame=details.querySelector('iframe');if(frame)frame.contentWindow.postMessage(JSON.stringify({event:'command',func:'pauseVideo',args:[]}),'https://www.youtube-nocookie.com');}
+ const frame=details.querySelector('iframe'),audio=details.querySelector('audio');
+ const feedback=document.createElement('p');feedback.className='music-feedback';feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');feedback.hidden=true;
+ details.querySelector('.soundtrack-player').prepend(feedback);
+ let player=null,ready=false,loadTimer=null;
+ function message(text){feedback.textContent=text;feedback.hidden=!text;}
+ function play(){
+  if(audio){const result=audio.play();if(result&&result.catch)result.catch(()=>message('Tippe auf Play im Player, um den Song zu starten.'));return;}
+  if(player&&ready){message('');player.playVideo();}
+  else if(frame)message('Song wird geladen …');
+ }
+ function stopPlayback(){
+  if(audio)audio.pause();
+  if(player&&ready)player.pauseVideo();
+ }
+ if(frame){
+  frame.id='profileYouTubePlayer';frame.loading='eager';
+  const source=new URL(frame.src);source.searchParams.set('enablejsapi','1');source.searchParams.set('origin',location.origin);frame.src=source.href;
+  function initPlayer(){
+   if(player||!window.YT||!window.YT.Player)return;
+   player=new window.YT.Player(frame.id,{events:{
+    onReady(){ready=true;clearTimeout(loadTimer);if(expanded)play();},
+    onStateChange(event){if(event.data===1)message('');},
+    onAutoplayBlocked(){if(expanded)message('Tippe auf Play im Video, um den Song zu starten.');},
+    onError(event){clearTimeout(loadTimer);const restricted=[100,101,150].includes(event.data);message(restricted?'YouTube erlaubt diesen Song hier nicht. Öffne ihn über den YouTube-Link unten.':'Der YouTube-Player konnte nicht starten. Nutze den YouTube-Link unten.');}
+   }});
+  }
+  const previous=window.onYouTubeIframeAPIReady;
+  window.onYouTubeIframeAPIReady=function(){if(typeof previous==='function')previous();initPlayer();};
+  if(window.YT&&window.YT.Player)initPlayer();
+  else{const script=document.createElement('script');script.src='https://www.youtube.com/iframe_api';script.async=true;script.onerror=()=>message('YouTube konnte nicht geladen werden. Nutze den YouTube-Link unten.');document.head.append(script);}
+  loadTimer=setTimeout(()=>{if(!ready)message('YouTube lädt nicht. Prüfe deinen Inhaltsblocker oder öffne den Song über den Link unten.');},15000);
+ }
  summary.addEventListener('click',event=>{
-  event.preventDefault();expanded=!expanded;if(!expanded)stopPlayback();
+  event.preventDefault();expanded=!expanded;
   const start=details.getBoundingClientRect().height;
   if(animation){animation.cancel();animation=null;}
   details.open=true;
+  if(expanded)play();else stopPlayback();
   const end=expanded?details.getBoundingClientRect().height:summary.getBoundingClientRect().height;
   if(matchMedia('(prefers-reduced-motion: reduce)').matches){details.open=expanded;return;}
   animation=details.animate([{height:start+'px'},{height:end+'px'}],{duration:320,easing:'cubic-bezier(.2,.7,.2,1)'});
