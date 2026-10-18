@@ -11,7 +11,7 @@ const zlib = require("zlib");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { applyRequestedTheme, youtubeVideoId, youtubePlayer } = require("./profile-theme");
+const { applyRequestedTheme, applyRequestedSharpBackground, youtubeVideoId, youtubePlayer } = require("./profile-theme");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -112,7 +112,7 @@ const DEFAULT_CONFIG = {
   ],
   spotify_url: "", audio_url: "", audio_autoplay: false, audio_loop: true, audio_volume: 0.5, audio_title: "", bg_video_url: "", bg_overlay_opacity: 0.3, bg_blur_amount: 0, card_shadow: true, show_song_widget: false, custom_css: "", meta_title: "", meta_description: "", favicon_url: "", custom_head: "", custom_js: "", badge_style: "pill", profile_layout: "center", page_width: "440", card_radius: "24", avatar_size: "90", feature_flags: {}, views: 0,
   analytics_enabled: true, click_tracking: true, announcement_enabled: false, announcement_text: "", announcement_url: "",
-  entry_enabled: true, entry_text: "click", entry_bg_color: "#050404", entry_text_color: "#eeeeee", entry_text_size: 20, entry_bg_image: "", entry_bg_video: "", entry_bg_type: "", entry_bg_opacity: 0.35, entry_bg_blur: 4, bg_use_avatar: true,
+  entry_enabled: true, entry_text: "click", entry_bg_color: "#050404", entry_text_color: "#eeeeee", entry_text_size: 20, entry_bg_image: "", entry_bg_video: "", entry_bg_type: "", entry_bg_opacity: 0.35, entry_bg_blur: 0, bg_use_avatar: true,
   enter_screen_enabled: false, enter_screen_text: "click here :3", share_bar_enabled: true, copy_button_enabled: true, theme_toggle_enabled: false,
   profile_title: "", hero_subtitle: "", quote_enabled: false, quote_text: "", cta_enabled: false, cta_label: "", cta_url: "",
   stats_enabled: false, stats_items: "", gear_enabled: false, gear_items: "", timeline_enabled: false, timeline_items: "",
@@ -139,6 +139,7 @@ async function initDB() {
     await pool.query("INSERT INTO bio_config (data) VALUES ($1)", [d]);
   }
   await applyRequestedTheme(pool);
+  await applyRequestedSharpBackground(pool);
 }
 async function getConfig() {
   const { rows } = await pool.query("SELECT data FROM bio_config LIMIT 1");
@@ -676,7 +677,7 @@ function renderBioPage(c, req) {
     : c.bg_type === "video" ? "transparent"
     : (c.bg_color||"#0a0a0a");
   const introBlurActive = c.bg_type === "video" && (c.enter_screen_enabled || c.audio_autoplay);
-  const videoBlur = c.bg_type === "video" ? Math.max(3, Math.min(10, Number(c.bg_blur_amount || 0) + 4)) : 0;
+  const videoBlur = Math.max(0, Math.min(20, Number(c.bg_blur_amount) || 0));
   const videoOverlay = c.bg_type === "video" ? Math.max(0.16, Math.min(0.42, Number(c.bg_overlay_opacity || 0.24))) : 0;
   const bgVideoHtml = c.bg_type === "video" && c.bg_video_url ? `<video data-bg-video autoplay loop muted playsinline preload="auto" fetchpriority="high" disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback" src="${c.bg_video_url}" style="position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3;background:#000;transform:scale(1.045) translateZ(0);will-change:auto;opacity:0;transition:opacity .24s linear, filter .42s ease;filter:brightness(.72) saturate(1.06);"></video><div style="position:fixed;inset:0;background:linear-gradient(180deg, rgba(0,0,0,${Math.min(videoOverlay + 0.08, 0.5)}), rgba(0,0,0,${videoOverlay}));z-index:-2;pointer-events:none;"></div><script>document.addEventListener("DOMContentLoaded",function(){if(${introBlurActive ? "true" : "false"}) document.body.classList.add("intro-blur");document.querySelectorAll("video[data-bg-video]").forEach(function(v){v.muted=true;v.playsInline=true;v.defaultMuted=true;v.setAttribute("muted","");var show=function(){v.style.opacity="1";};var p=function(){try{v.load();}catch(e){}var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});};v.addEventListener("loadeddata",show,{once:true});v.addEventListener("canplay",function(){show();p();},{once:true});v.addEventListener("playing",show,{once:true});p();document.addEventListener("click",p,{once:true});});});<\/script>` : "";
   const cardBg = c.card_style==="glass" ? "rgba(255,255,255,0.06)" : c.card_style==="light" ? "rgba(255,255,255,0.96)" : "rgba(17,17,17,0.95)";
@@ -1723,7 +1724,7 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
     <p class="st" style="margin-top:0">Start-Hintergrund</p>
     <div class="fi"><label for="entry_bg_type">Hintergrund</label><select id="entry_bg_type"><option value="inherit" ${(c.entry_bg_type||(c.entry_bg_image?'image':'inherit'))==='inherit'?'selected':''}>Profil-Hintergrund durchscheinen lassen</option><option value="image" ${(c.entry_bg_type||(c.entry_bg_image?'image':'inherit'))==='image'?'selected':''}>Bild / animiertes GIF</option><option value="video" ${c.entry_bg_type==='video'?'selected':''}>Video (MP4 / WebM)</option></select></div>
     <div class="fi"><label for="entry_bg_opacity">Abdunklung / Deckkraft</label><input type="range" id="entry_bg_opacity" min="0" max="1" step="0.05" value="${c.entry_bg_opacity??.35}" oninput="this.nextElementSibling.textContent=Math.round(this.value*100)+'%'"><span class="td">${Math.round((c.entry_bg_opacity??.35)*100)}%</span></div>
-    <div class="fi"><label for="entry_bg_blur">Unschärfe</label><input type="range" id="entry_bg_blur" min="0" max="20" step="1" value="${c.entry_bg_blur??4}" oninput="this.nextElementSibling.textContent=this.value+'px'"><span class="td">${c.entry_bg_blur??4}px</span></div>
+    <div class="fi"><label for="entry_bg_blur">Unschärfe</label><input type="range" id="entry_bg_blur" min="0" max="20" step="1" value="${c.entry_bg_blur??0}" oninput="this.nextElementSibling.textContent=this.value+'px'"><span class="td">${c.entry_bg_blur??0}px</span></div>
     <div class="fi"><label>GIF / Bild / MP4 hochladen</label><input type="file" id="entry_media_file" accept="image/gif,image/png,image/jpeg,image/webp,video/mp4,video/webm" hidden><button type="button" class="upload-btn" onclick="document.getElementById('entry_media_file').click()">Datei wählen</button><p id="entry_media_status" class="td" role="status">GIF, JPG, PNG, WebP, MP4 oder WebM · bis 25 MB</p></div>
     <div class="fi"><label for="entry_bg_video">Video-URL (MP4 / WebM)</label><input type="url" id="entry_bg_video" value="${esc(c.entry_bg_video||'')}" placeholder="https://…/background.mp4"><video id="entry_video_preview" src="${esc(c.entry_bg_video||'')}" muted loop playsinline controls preload="metadata" style="display:${c.entry_bg_video?'block':'none'};width:100%;max-height:180px;object-fit:cover;border-radius:10px;margin-top:12px"></video></div>
     <div class="fi"><label for="entry_bg_image_text">Bild-/GIF-URL</label><input type="url" id="entry_bg_image_text" value="${esc(c.entry_bg_image&&!c.entry_bg_image.startsWith('data:')?c.entry_bg_image:'')}" placeholder="https://…/background.gif" oninput="document.getElementById('entry_bg_image').value=this.value;document.getElementById('entry_bg_preview').src=this.value;document.getElementById('entry_bg_preview').style.display=this.value?'block':'none'"><input type="hidden" id="entry_bg_image" value="${esc(c.entry_bg_image||'')}"><img id="entry_bg_preview" alt="Bild-/GIF-Vorschau" src="${esc(c.entry_bg_image||'')}" style="display:${c.entry_bg_image?'block':'none'};width:100%;max-height:160px;object-fit:cover;margin-top:12px;border-radius:10px"></div><button type="button" id="entry_clear_media" class="bab">Eigene Medien entfernen</button>
