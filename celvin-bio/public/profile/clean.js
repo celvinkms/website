@@ -38,6 +38,7 @@
  /* Player state is driven by the actual media provider, never by the animation. */
  const card=document.querySelector('.soundtrack');if(!card)return;
  const toggle=card.querySelector('.music-toggle'),frame=card.querySelector('iframe'),audio=card.querySelector('audio');
+ const beatSync=audio?window.createProfileBeatSync?.(audio,document.querySelector('.ambient')):null;
  const seek=card.querySelector('#musicSeek'),volume=card.querySelector('#musicVolume');
  const stateLabel=card.querySelector('[data-player-state]');
  const feedback=document.createElement('p');feedback.className='music-feedback';feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');feedback.hidden=true;card.querySelector('.soundtrack-player').prepend(feedback);
@@ -57,7 +58,7 @@
  }
  function play(){
   requested=true;message('');
-  if(audio){setVolume();const promise=audio.play();promise?.catch(()=>{requested=false;setState(false);message('Tippe auf Play, um die Musik zu starten.');});}
+  if(audio){beatSync?.unlock();setVolume();const promise=audio.play();promise?.catch(()=>{requested=false;setState(false);message('Tippe auf Play, um die Musik zu starten.');});}
   else if(player&&ready)player.playVideo();
   else stateLabel.textContent='Song wird geladen …';
  }
