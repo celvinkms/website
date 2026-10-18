@@ -13,6 +13,8 @@ const { applyRequestedTheme, youtubeVideoId, youtubePlayer } = require("./profil
 const app = express();
 const PORT = process.env.PORT || 3000;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+// Idle PostgreSQL disconnects must not become unhandled EventEmitter errors.
+pool.on("error", error => console.error("DB Pool Verbindung unterbrochen:", error.code || error.message));
 const BG_VIDEO_CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks: stabil auf Render, kein Out-of-Memory
 const BG_VIDEO_STREAM_WINDOW = 24 * 1024 * 1024; // große Fenster + Datei-Cache: deutlich flüssiger für Videos
 const BG_VIDEO_DIRECT_WINDOW = 6 * 1024 * 1024; // sofortiger Fallback: kleine Byte-Ranges direkt aus DB-Chunks
@@ -908,19 +910,29 @@ ${renderV6PublicSkin(c)}${customJS?`<script>${customJS}</script>`:""}${v4PublicS
 }
 
 app.get("/", async (req, res) => {
-  const c = await getConfig();
-
-  // Discord cached https://celvin.rip/ sehr hart. Für Embed-Crawler leiten wir unsichtbar
-  // auf eine interne Version weiter. User posten weiterhin nur https://celvin.rip/.
-  if (isEmbedCrawler(req) && !req.query.__embed_v) {
-    const v = makeEmbedVersion(c);
-    return res.redirect(302, "/?__embed_v=" + encodeURIComponent(v));
+  try {
+    const c = await getConfig();
+    if (isEmbedCrawler(req) && !req.query.__embed_v) {
+      const v = makeEmbedVersion(c);
+      return res.redirect(302, "/?__embed_v=" + encodeURIComponent(v));
+    }
+    setEmbedNoCache(res);
+    if (c.show_views) {
+      // Update only the counter. A page view must not overwrite profile edits or
+      // take the site down when a nonessential statistics write fails.
+      try {
+        await pool.query(`UPDATE bio_config SET data = jsonb_set(data, '{views}', to_jsonb((CASE WHEN jsonb_typeof(data->'views') = 'number' THEN (data->>'views')::numeric ELSE 0 END) + 1)) WHERE id = (SELECT id FROM bio_config ORDER BY id LIMIT 1)`);
+        c.views = (Number(c.views) || 0) + 1;
+      } catch (error) { console.error("Aufrufzähler nicht gespeichert:", error.code || error.message); }
+    }
+    trackEvent(req, "view", { config: c }).catch(()=>{});
+    res.send(renderBioPage(c, req));
+  } catch (error) {
+    console.error("Profil nicht verfügbar:", error.code || error.message);
+    res.set("Retry-After", "30");
+    res.set("Cache-Control", "no-store");
+    res.status(503).send('<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vorübergehend nicht erreichbar</title><body style="background:#080808;color:#ddd;font:16px/1.7 system-ui;display:grid;place-content:center;min-height:90vh;padding:24px"><main><h1 style="font-size:24px">Kurz nicht erreichbar.</h1><p>Die Verbindung wird wiederhergestellt. Bitte versuche es gleich erneut.</p><a style="color:#ccc" href="/">Erneut versuchen</a></main></body></html>');
   }
-
-  setEmbedNoCache(res);
-  if (c.show_views) { c.views = (c.views||0)+1; await saveConfig(c); }
-  trackEvent(req, "view", { config: c }).catch(()=>{});
-  res.send(renderBioPage(c, req));
 });
 
 // Audio-Streaming-Endpoint mit Range-Request-Support (wichtig für Safari + Autoplay)
