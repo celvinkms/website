@@ -32,10 +32,22 @@
       const section=document.getElementById('sec-'+id);
       if (section) { const p=document.createElement('p'); p.className='editor-section-note'; p.textContent=note; section.prepend(p); }
     });
+    const more=document.createElement('details');more.className='editor-more';
+    const summary=document.createElement('summary');summary.textContent='Weitere Werkzeuge';more.append(summary);
+    const advancedIds=['v4studio','v5lab','featurelab','v5forge','sharekit','automation','advanced'];
+    advancedIds.forEach(id=>{const button=side.querySelector('[data-section="'+id+'"]');if(button)more.append(button);});
+    side.insertBefore(more,footer);
+    side.querySelectorAll('.editor-label').forEach(label=>{if(label.textContent==='Extras')label.remove();});
+    const mobileNav=document.createElement('select');mobileNav.className='editor-mobile-nav';mobileNav.setAttribute('aria-label','Bereich auswählen');
+    sections.forEach(([id,label])=>{const option=document.createElement('option');option.value=id;option.textContent=label;mobileNav.append(option);});
+    document.querySelector('.editor-topline').after(mobileNav);
+    mobileNav.addEventListener('change',()=>navTo(mobileNav.value));
     const originalNav = window.navTo;
     window.navTo = function(id) {
       if (!document.getElementById('sec-'+id)) return;
       originalNav(id);
+      mobileNav.value=id;
+      if(advancedIds.includes(id))more.open=true;
       const item=sections.find(x=>x[0]===id);
       document.getElementById('pt').textContent=item?item[1]:id;
       document.querySelectorAll('.ni[data-section]').forEach(button=>button.setAttribute('aria-current',button.dataset.section===id?'page':'false'));
@@ -64,7 +76,9 @@
     const search=document.getElementById('editorSearch');
     search.addEventListener('input',()=>{
       const query=search.value.trim().toLocaleLowerCase('de'); let count=0;
+      if(query)more.open=true;
       sections.forEach(([id,label,note])=>{const button=side.querySelector('[data-section="'+id+'"]');if(!button)return;button.hidden=!!query&&!(label+' '+note).toLocaleLowerCase('de').includes(query);if(!button.hidden)count++;});
+      document.getElementById('searchResults').classList.toggle('sr-only',!query);
       document.getElementById('searchResults').textContent=query?(count+' Bereiche gefunden'):'';
     });
     search.addEventListener('keydown',event=>{
