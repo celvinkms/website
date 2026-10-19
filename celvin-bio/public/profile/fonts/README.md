@@ -5,7 +5,9 @@ Locally served Google Fonts Latin webfont subsets.
 
 Both are distributed under the SIL Open Font License; original notices are included alongside the fonts. WOFF2 files are served without changes.
 
-UnifrakturCook Bold is used for the title. Pirata One is used for the entry text. Manrope is used for the small UI labels.
+Grenze Gotisch Medium (500) is used for the smaller, softer title. Pirata One is used for the entry text. Manrope is used for the small UI labels.
+
+Grenze Gotisch Latin WOFF2 is the unmodified webfont delivered by Google Fonts (https://fonts.google.com/specimen/Grenze+Gotisch). License and copyright notice: GrenzeGotisch-OFL.txt.
 
 UnifrakturCook Latin WOFF2 is the unmodified webfont delivered by Google Fonts (https://fonts.google.com/specimen/UnifrakturCook). License and copyright notice: UnifrakturCook-OFL.txt.
 
