@@ -11,7 +11,7 @@ const zlib = require("zlib");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { applyRequestedTheme, applyRequestedSharpBackground, applyRequestedPinterestBackground, applyRequestedSong, applyRequestedBassEdit, applyRequestedNobuSong, applyRequestedBeatPlayback, youtubeVideoId, youtubePlayer } = require("./profile-theme");
+const { applyRequestedTheme, applyRequestedSharpBackground, applyRequestedPinterestBackground, applyRequestedSong, applyRequestedBassEdit, applyRequestedNobuSong, applyRequestedBeatPlayback, applyRequestedProfileImage, youtubeVideoId, youtubePlayer } = require("./profile-theme");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -145,6 +145,7 @@ async function initDB() {
   await applyRequestedBassEdit(pool);
   await applyRequestedNobuSong(pool);
   await applyRequestedBeatPlayback(pool);
+  await applyRequestedProfileImage(pool);
 }
 async function getConfig() {
   const { rows } = await pool.query("SELECT data FROM bio_config LIMIT 1");
