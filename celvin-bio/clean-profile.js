@@ -1,11 +1,12 @@
 const {renderPresence}=require('./discord-presence');
 const {renderDiscordBadges}=require('./discord-badges');
 const {youtubePlayer}=require('./profile-theme');
+const {renderProfileMeta}=require('./profile-meta');
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const color=(v,f)=>/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(v||'')?v:f;
 const clamp=(v,f,min,max)=>Number.isFinite(Number(v))?Math.max(min,Math.min(max,Number(v))):f;
 // Identity, soundtrack, links and uploaded media continue to come from the admin.
-function renderCleanProfile(c,{links='',badges=''}={}){
+function renderCleanProfile(c,{links='',badges='',publicOrigin='https://celvin.rip'}={}){
  const name=esc(c.username||'sorrow'),presence=renderPresence(c),entry=c.entry_enabled!==false;
  const nativeBackground=Boolean((c.bg_type==='image'&&c.bg_image_url)||(c.bg_type==='video'&&c.bg_video_url));
  const atmosphere=nativeBackground?'':'<div class="moon"></div><div class="fog fog-one"></div><div class="fog fog-two"></div><div class="horizon"></div>';
@@ -34,7 +35,7 @@ function renderCleanProfile(c,{links='',badges=''}={}){
   '<div class="player-bottom"><span class="player-source">'+(music?'YOUTUBE AUDIO':'PROFILE AUDIO')+'</span><label class="volume-control" for="musicVolume">'+soundIcon+'<span class="sr-only">Lautstärke</span><input id="musicVolume" type="range" min="0" max="100" value="'+Math.round(clamp(c.audio_volume??.5,.5,0,1)*100)+'"></label></div><div class="soundtrack-player">'+(music||audio)+'</div></section>'
  ].join(''):'';
  return [
- '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#050505"><title>'+tabTitle+'</title><link rel="icon" href="'+favicon+'"><meta name="description" content="'+esc(c.bio)+'"><meta property="og:title" content="'+name+'"><meta property="og:description" content="'+esc(c.bio)+'"><link rel="preload" href="/profile/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/profile/fonts/grenze-gotisch-500-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/profile/fonts/pirata-one-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-15"><link rel="stylesheet" href="/profile/clean.css?v=title-9"></head>',
+ '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+tabTitle+'</title><link rel="icon" href="'+favicon+'">'+renderProfileMeta(c,publicOrigin)+'<link rel="preload" href="/profile/fonts/manrope-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/profile/fonts/grenze-gotisch-500-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/profile/fonts/pirata-one-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-15"><link rel="stylesheet" href="/profile/clean.css?v=title-9"></head>',
  '<body class="clean-profile grunge-emo'+(presence?' discord-live-enabled':'')+(entry?' entry-pending':'')+(nativeBackground?' native-background':'')+'">',
  entry?'<button type="button" id="enterProfile" class="entry-screen" style="'+entryStyle+'" aria-label="Profil öffnen und Musik starten">'+entryMedia+'<span>'+esc(c.entry_text||'click')+'</span></button><noscript><style>.entry-screen{display:none!important}.entry-pending .profile-stage{visibility:visible!important;opacity:1!important}.reveal{opacity:1!important;filter:none!important;transform:none!important}</style></noscript>':'',
  '<div class="ambient" style="'+sceneStyle+'" aria-hidden="true">'+background+atmosphere+'</div><canvas id="ashCanvas" aria-hidden="true"></canvas>'+texture+'<div id="cursorGlow" aria-hidden="true"></div>',

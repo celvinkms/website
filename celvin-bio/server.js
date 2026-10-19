@@ -826,7 +826,7 @@ function renderBioPage(c, req) {
   const embedDesc = (metaDesc || `${linkCount} links • ${badgeCount} badges`).slice(0, 180);
   const siteName = (c.username ? `@${c.username}` : metaTitle) + " • bio";
 
-  if(c.profile_theme === "grunge-emo") return renderCleanProfile(c,{links,badges});
+  if(c.profile_theme === "grunge-emo") return renderCleanProfile(c,{links,badges,publicOrigin:publicUrl(req)});
   return `<!DOCTYPE html>
 <html lang="de"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -941,7 +941,8 @@ app.post("/admin/discord/test",requireAdminApi,async(req,res)=>{
 app.get("/", async (req, res) => {
   try {
     const c = await getConfig();
-    if (isEmbedCrawler(req) && !req.query.__embed_v) {
+    // The clean profile serves full preview metadata directly to link crawlers.
+    if (c.profile_theme !== 'grunge-emo' && isEmbedCrawler(req) && !req.query.__embed_v) {
       const v = makeEmbedVersion(c);
       return res.redirect(302, "/?__embed_v=" + encodeURIComponent(v));
     }
