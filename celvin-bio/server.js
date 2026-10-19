@@ -1,4 +1,6 @@
 const express = require("express");
+const {createKeepAlive}=require("./keep-alive");
+const keepAlive=createKeepAlive();
 const {renderCleanProfile}=require("./clean-profile");
 const {catalog:discordBadgeCatalog,normalizeDiscordBadges,renderDiscordBadges,renderDiscordBadgeEditor}=require("./discord-badges");
 const {validDiscordId,filterPresence,createPresenceService,renderPresence,renderPresenceAdmin}=require("./discord-presence");
@@ -2416,7 +2418,7 @@ app.get("/go/:idx", async (req, res) => {
 
 app.get("/healthz", (req, res) => {
   setEmbedNoCache(res);
-  res.json({ ok: true, service: "bio", time: new Date().toISOString() });
+  res.json({ ok: true, service: "bio", time: new Date().toISOString(), uptimeSeconds: Math.floor(process.uptime()), keepAlive: keepAlive.status() });
 });
 app.get("/robots.txt", async (req, res) => {
   const base = publicUrl(req);
@@ -2678,5 +2680,9 @@ app.get("/admin/logout", (req, res) => { req.session.destroy(); res.redirect("/a
 
 initDB().then(() => {
   prewarmBgVideoCache();
-  app.listen(PORT, () => console.log("Server läuft auf Port", PORT));
+  const server=app.listen(PORT, () => {
+    console.log("Server läuft auf Port", PORT);
+    void keepAlive.start();
+  });
+  server.on('close',()=>keepAlive.stop());
 }).catch(err => { console.error("DB Init Fehler:", err); process.exit(1); });
