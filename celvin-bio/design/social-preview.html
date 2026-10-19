@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1200,initial-scale=1">
+<title>celvin.rip — Share banner source</title>
+<style>
+/* BANNER DESIGN: colors here; profile name, subtitle and image below. */
+:root{--background:#070708;--text:#eeebeb;--muted:#a39a9c;--accent:#9d5868}
+@font-face{font-family:Gothic;src:url('../public/profile/fonts/grenze-gotisch-500-latin.woff2');font-weight:500}
+@font-face{font-family:Serif;src:url('../public/profile/fonts/cormorant-garamond-latin-italic.woff2');font-style:italic;font-weight:400}
+@font-face{font-family:Sans;src:url('../public/profile/fonts/manrope-latin.woff2');font-weight:400 700}
+*{box-sizing:border-box}
+html,body{margin:0;width:1200px;height:630px;overflow:hidden;background:var(--background);color:var(--text);-webkit-font-smoothing:antialiased}
+.banner{position:relative;width:100%;height:100%;isolation:isolate;background:radial-gradient(ellipse at 20% 70%,#21141855,transparent 58%)}
+.portrait{position:absolute;inset:0 0 0 auto;width:670px;height:630px;object-fit:cover;object-position:center 30%;opacity:.79;mask-image:linear-gradient(90deg,transparent,black 35%);-webkit-mask-image:linear-gradient(90deg,transparent,black 35%)}
+.shade{position:absolute;inset:0;background:linear-gradient(0deg,#070708 0%,transparent 28%,transparent 85%,#07070877 100%),linear-gradient(90deg,transparent 65%,#07070844)}
+.edge{position:absolute;inset:24px;border:1px solid #ffffff0c}
+.copy{position:absolute;left:82px;top:70px;bottom:62px;display:flex;flex-direction:column;align-items:flex-start}
+.domain{font:400 13px Sans,sans-serif;letter-spacing:.26em;color:var(--muted)}
+.identity{margin-top:75px}
+h1{font:500 148px/1.02 Gothic,serif;letter-spacing:-.025em;margin:0 0 8px;text-shadow:0 3px 25px #0006}
+.subtitle{margin:0;font:italic 400 31px/1.4 Serif,serif;color:#c4babc;letter-spacing:.045em}
+.rule{width:38px;height:2px;background:var(--accent);margin-top:27px;opacity:.85}
+.world{margin-top:auto;font:400 10px Sans,sans-serif;letter-spacing:.44em;color:#888087}
+</style>
+</head>
+<body>
+<main class="banner">
+ <img class="portrait" src="../public/profile/halftone-avatar-v1.png" alt="">
+ <div class="shade"></div><div class="edge"></div>
+ <div class="copy"><span class="domain">CELVIN.RIP</span><div class="identity"><h1>suffer</h1><p class="subtitle">my / obsession</p><div class="rule"></div></div><span class="world">WORLD</span></div>
+</main>
+</body>
+</html>
