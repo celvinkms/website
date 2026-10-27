@@ -89,6 +89,10 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #ed6b
 .socials .link-platform{font-size:8px;text-transform:uppercase;color:#777}
 .socials .link-username{font-size:12px}
 .socials .arr{margin-left:auto}
+.reference-profile .socials .discord-link{display:flex!important}
+.dialog-panel .discord-presence{margin:16px 0 0;background:#f0efed;border-color:#d3d0cd;color:#222}
+.dialog-panel .discord-presence-identity>span,.dialog-panel .discord-custom-status,.dialog-panel .discord-updated{color:#666}
+.dialog-panel .discord-activity strong,.dialog-panel .discord-spotify strong{color:#222}
 #copyStatus{position:fixed;bottom:58px;left:50%;transform:translateX(-50%);z-index:30;background:#111;color:#fff;padding:8px 12px;opacity:0;pointer-events:none;transition:opacity .2s}
 #copyStatus.visible{opacity:1}
 .entry-screen{position:fixed;inset:0;z-index:50;border:0;background:#050505;color:#f2f2f2;text-align:left;padding:clamp(50px,12vh,100px) clamp(28px,7vw,110px);font-size:13px;line-height:2;letter-spacing:.05em}

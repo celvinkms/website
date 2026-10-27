@@ -34,7 +34,7 @@ function renderReferenceProfile(c,{links='',badges='',publicOrigin='https://celv
     '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
     '<title>'+esc(c.meta_title||'celvin.rip')+'</title><link rel="icon" href="'+favicon+'">'+renderProfileMeta(c,publicOrigin),
     '<link rel="preload" href="/profile/ink-hands-v1.webp" as="image">',
-    '<link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-15"><link rel="stylesheet" href="/profile/reference.css?v=3"></head>',
+    '<link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-15"><link rel="stylesheet" href="/profile/reference.css?v=4"></head>',
     '<body class="reference-profile grunge-emo'+(entry?' entry-pending':'')+'">',
     entry?'<button type="button" id="enterProfile" class="entry-screen" aria-label="Profil öffnen und Musik starten"><span class="boot-lines"><span>[ OK ] Initializing celvin.rip</span><span>[ OK ] Loading visual subsystem</span><span>[ OK ] Mounting profile module</span><span>[ OK ] Establishing cursor connection</span><span>[ OK ] System ready</span><span class="boot-proceed">[ click to proceed ]</span></span><span class="boot-corner">celvin.rip // 01</span></button>':'',
     '<div class="ambient" aria-hidden="true"></div><div class="paper-grain" aria-hidden="true"></div>',
