@@ -97,7 +97,17 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #ed6b
 #copyStatus.visible{opacity:1}
 .entry-screen{position:fixed;inset:0;z-index:50;border:0;background:#050505;color:#f2f2f2;text-align:left;padding:clamp(50px,12vh,100px) clamp(28px,7vw,110px);font-size:13px;line-height:2;letter-spacing:.05em}
 .entry-screen .boot-lines{display:flex;flex-direction:column;align-items:flex-start}
-.boot-proceed{display:inline-block;border:1px solid #303030;margin-top:18px;padding:3px 10px;animation:bootBlink 1.4s steps(2,end) infinite}
+.boot-lines>span:not(.boot-proceed){opacity:0;visibility:hidden;transform:translateY(5px);animation:bootReveal .28s ease-out forwards}
+.boot-lines>span:nth-child(1){animation-delay:.16s}
+.boot-lines>span:nth-child(2){animation-delay:.56s}
+.boot-lines>span:nth-child(3){animation-delay:.96s}
+.boot-lines>span:nth-child(4){animation-delay:1.36s}
+.boot-lines>span:nth-child(5){animation-delay:1.76s}
+.boot-lines>span:nth-child(6){animation-delay:2.16s}
+.boot-proceed{display:inline-block;border:1px solid #303030;margin-top:18px;padding:3px 10px;opacity:0;visibility:hidden;animation:bootReveal .25s 2.62s ease-out forwards}
+.boot-proceed>span{display:inline-block;animation:bootBlink 1.4s 2.95s steps(2,end) infinite}
+.entry-screen:not(:disabled){cursor:pointer}
+@keyframes bootReveal{to{opacity:1;visibility:visible;transform:translateY(0)}}
 .boot-corner{position:absolute;right:28px;bottom:23px;font-size:8px;color:#aaa}
 .entry-screen.leaving{opacity:0;pointer-events:none;transition:opacity .65s}
 @keyframes bootBlink{50%{opacity:.45}}
@@ -122,4 +132,4 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #ed6b
  .dialog-panel{padding:30px 20px 22px}
 }
 @media(max-width:390px){.song-copy{display:none}.seek-row input{width:60px}.volume-control input{width:40px}}
-@media(prefers-reduced-motion:reduce){.profile-orbit,.orbit-ring,.entry-screen,#copyStatus{transition:none!important;animation:none!important}}
+@media(prefers-reduced-motion:reduce){.profile-orbit,.orbit-ring,.entry-screen,#copyStatus{transition:none!important;animation:none!important}.boot-lines>span,.boot-proceed,.boot-proceed>span{animation:none!important;opacity:1!important;visibility:visible!important;transform:none!important}}

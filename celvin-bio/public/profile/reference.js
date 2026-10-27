@@ -4,6 +4,11 @@
   const panels={profile:document.getElementById('profileDialog'),contact:document.getElementById('contactDialog')};
   const tabToggle=document.getElementById('tabToggle');
   const tabMenu=document.getElementById('tabMenu');
+  const entry=document.getElementById('enterProfile');
+  if(entry){
+    const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.setTimeout(()=>{entry.disabled=false;},reducedMotion?0:2900);
+  }
   let active=null;
   let returnFocus=null;
 
