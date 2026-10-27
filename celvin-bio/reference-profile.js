@@ -35,7 +35,7 @@ function renderReferenceProfile(c,{links='',badges='',publicOrigin='https://celv
   const favicon=esc(c.favicon_url||'/profile/bunny-tab.jpg?v=tab-2');
   return [
     '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
-    '<title>'+esc(c.meta_title||'celvin.rip')+'</title><link rel="icon" href="'+favicon+'">'+renderProfileMeta(c,publicOrigin),
+    '<title>'+esc(c.meta_title||'celvin.rip')+'</title><link rel="icon" href="'+favicon+'">'+renderProfileMeta(c,publicOrigin,{compact:true}),
     '<link rel="preload" href="/profile/ink-hands-v1.webp" as="image">',
     '<link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-15"><link rel="stylesheet" href="/profile/reference.css?v=8"></head>',
     '<body class="reference-profile grunge-emo'+(entry?' entry-pending':'')+'">',

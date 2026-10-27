@@ -2,12 +2,12 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {renderProfileMeta}=require('../profile-meta');
 const {createHarness}=require('./harness.cjs');
 
-test('Discord crawler gets a complete image preview in the initial clean-profile HTML',async()=>{
+test('Discord crawler gets a compact image preview for the current profile',async()=>{
  const harness=createHarness();Object.assign(harness.state.config,{profile_theme:'grunge-emo',username:'suffer',pronouns:'my',bio:'obsession',entry_enabled:true});
  const response=await harness.request('GET','/',{},false,{headers:{host:'celvin.rip','x-forwarded-proto':'https','user-agent':'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)'}});
  assert.equal(response.status,200);
  const head=response.body.split('</head>')[0];
- for(const fragment of ['property="og:type" content="website"','property="og:title" content="suffer"','property="og:description" content="my / obsession"','property="og:url" content="https://celvin.rip/"','property="og:image" content="https://celvin.rip/profile/social-preview-v1.png"','property="og:image:type" content="image/png"','property="og:image:width" content="1200"','property="og:image:height" content="630"','name="twitter:card" content="summary_large_image"'])assert.ok(head.includes(fragment),fragment);
+ for(const fragment of ['property="og:type" content="website"','property="og:title" content="suffer"','property="og:description" content="my / obsession"','property="og:url" content="https://celvin.rip/"','property="og:image" content="https://celvin.rip/profile/profile-2026-10-27.jpg?v=compact-1"','property="og:image:type" content="image/jpeg"','property="og:image:width" content="736"','property="og:image:height" content="736"','name="twitter:card" content="summary"','name="theme-color" content="#8a74b8"'])assert.ok(head.includes(fragment),fragment);
  assert.equal((head.match(/property="og:image"/g)||[]).length,1);
  assert.equal((head.match(/name="theme-color"/g)||[]).length,1);
  assert.ok(response.body.includes('id="enterProfile"'));
