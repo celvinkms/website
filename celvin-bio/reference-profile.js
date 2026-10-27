@@ -15,17 +15,11 @@ function renderReferenceProfile(c,{links='',badges='',publicOrigin='https://celv
     : '<span class="avatar-emoji" aria-hidden="true">'+esc(c.avatar_emoji||'✦')+'</span>';
   const entry=c.entry_enabled!==false;
   const presence=renderPresence(c);
-  const spotifyTrack=String(c.spotify_url||'').match(/^https:\/\/open\.spotify\.com\/track\/([A-Za-z0-9]{22})(?:[?#]|$)/)?.[1];
   const music=youtubePlayer(c).replace('?playsinline=1','?enablejsapi=1&playsinline=1');
   const audio=!music&&c.audio_url
     ? '<audio preload="auto" '+(c.audio_loop?'loop ':'')+'src="'+esc(c.audio_url.startsWith('data:')?'/audio':c.audio_url)+'"></audio>'
     : '';
-  const player=spotifyTrack?[
-    '<section class="spotify-dock" aria-label="Spotify-Player">',
-    '<div class="spotify-dock-heading"><span>♫ COUNT MY BANDZ — RICH AMIRI</span><a href="https://open.spotify.com/track/'+spotifyTrack+'" target="_blank" rel="noopener noreferrer">OPEN IN SPOTIFY ↗</a></div>',
-    '<iframe title="Rich Amiri — COUNT MY BANDZ auf Spotify" src="https://open.spotify.com/embed/track/'+spotifyTrack+'" width="340" height="152" loading="eager" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe>',
-    '</section>'
-  ].join(''):(music||audio)?[
+  const player=(music||audio)?[
     '<section class="soundtrack" aria-label="Musik-Player">',
     '<button type="button" class="music-toggle" aria-label="Musik abspielen" aria-pressed="false"><span class="play-symbol" aria-hidden="true">▶</span><span class="pause-symbol" aria-hidden="true">Ⅱ</span></button>',
     '<div class="song-copy"><strong>'+esc(c.audio_title||'Mein Soundtrack')+'</strong><span data-player-state>Bereit</span></div>',
@@ -40,9 +34,9 @@ function renderReferenceProfile(c,{links='',badges='',publicOrigin='https://celv
     '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
     '<title>'+esc(c.meta_title||'celvin.rip')+'</title><link rel="icon" href="'+favicon+'">'+renderProfileMeta(c,publicOrigin),
     '<link rel="preload" href="/profile/ink-hands-v1.webp" as="image">',
-    '<link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-15"><link rel="stylesheet" href="/profile/reference.css?v=5"></head>',
+    '<link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-15"><link rel="stylesheet" href="/profile/reference.css?v=6"></head>',
     '<body class="reference-profile grunge-emo'+(entry?' entry-pending':'')+'">',
-    entry?'<button type="button" id="enterProfile" class="entry-screen" aria-label="'+(spotifyTrack?'Profil öffnen':'Profil öffnen und Musik starten')+'"><span class="boot-lines"><span>[ OK ] Initializing celvin.rip</span><span>[ OK ] Loading visual subsystem</span><span>[ OK ] Mounting profile module</span><span>[ OK ] Establishing cursor connection</span><span>[ OK ] System ready</span><span class="boot-proceed">[ click to proceed ]</span></span><span class="boot-corner">celvin.rip // 01</span></button>':'',
+    entry?'<button type="button" id="enterProfile" class="entry-screen" aria-label="Profil öffnen und Musik starten"><span class="boot-lines"><span>[ OK ] Initializing celvin.rip</span><span>[ OK ] Loading visual subsystem</span><span>[ OK ] Mounting profile module</span><span>[ OK ] Establishing cursor connection</span><span>[ OK ] System ready</span><span class="boot-proceed">[ click to proceed ]</span></span><span class="boot-corner">celvin.rip // 01</span></button>':'',
     '<div class="ambient" aria-hidden="true"></div><div class="paper-grain" aria-hidden="true"></div>',
     '<div class="profile-stage">',
     '<header class="topline"><span class="page-count">01 — 01</span><h1>celvin.rip</h1><span class="online-mark">[ online ]</span></header>',
