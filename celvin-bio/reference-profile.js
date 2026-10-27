@@ -34,9 +34,9 @@ function renderReferenceProfile(c,{links='',badges='',publicOrigin='https://celv
     '<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
     '<title>'+esc(c.meta_title||'celvin.rip')+'</title><link rel="icon" href="'+favicon+'">'+renderProfileMeta(c,publicOrigin),
     '<link rel="preload" href="/profile/ink-hands-v1.webp" as="image">',
-    '<link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-15"><link rel="stylesheet" href="/profile/reference.css?v=6"></head>',
+    '<link rel="stylesheet" href="/profile/discord-badges.css?v=badges-12"><link rel="stylesheet" href="/profile/discord-presence.css?v=discord-live-15"><link rel="stylesheet" href="/profile/reference.css?v=7"></head>',
     '<body class="reference-profile grunge-emo'+(entry?' entry-pending':'')+'">',
-    entry?'<button type="button" id="enterProfile" class="entry-screen" aria-label="Profil öffnen und Musik starten"><span class="boot-lines"><span>[ OK ] Initializing celvin.rip</span><span>[ OK ] Loading visual subsystem</span><span>[ OK ] Mounting profile module</span><span>[ OK ] Establishing cursor connection</span><span>[ OK ] System ready</span><span class="boot-proceed">[ click to proceed ]</span></span><span class="boot-corner">celvin.rip // 01</span></button>':'',
+    entry?'<button type="button" id="enterProfile" class="entry-screen" aria-label="Profil öffnen und Musik starten" disabled><span class="boot-lines"><span>[ OK ] Initializing celvin.rip</span><span>[ OK ] Loading visual subsystem</span><span>[ OK ] Mounting profile module</span><span>[ OK ] Establishing cursor connection</span><span>[ OK ] Background process running</span><span>[ OK ] System ready</span><span class="boot-proceed"><span>[ click to proceed ]</span></span></span><span class="boot-corner">celvin.rip // 01</span></button>':'',
     '<div class="ambient" aria-hidden="true"></div><div class="paper-grain" aria-hidden="true"></div>',
     '<div class="profile-stage">',
     '<header class="topline"><span class="page-count">01 — 01</span><h1>celvin.rip</h1><span class="online-mark">[ online ]</span></header>',
@@ -49,7 +49,7 @@ function renderReferenceProfile(c,{links='',badges='',publicOrigin='https://celv
     '<section class="dialog-panel" id="contactDialog" role="dialog" aria-modal="true" aria-labelledby="contactTitle" hidden><button type="button" class="dialog-close" data-close aria-label="Schließen">[ close ]</button><p class="dialog-eyebrow">CELVIN.RIP / CONTACT</p><h2 id="contactTitle">open channels</h2><p class="dialog-summary">'+socialCount+' '+(socialCount===1?'link':'links')+'</p><nav class="socials" aria-label="Social Links">'+links+'</nav></section>',
     '<div id="copyStatus" role="status" aria-live="polite"></div>',
     '</div>',
-    '<script src="/profile/clean.js?v=beat-2"></script><script src="/profile/discord-presence.js?v=discord-live-15"></script><script src="/profile/reference.js?v=1"></script>',
+    '<script src="/profile/clean.js?v=beat-2"></script><script src="/profile/discord-presence.js?v=discord-live-15"></script><script src="/profile/reference.js?v=2"></script>',
     '<noscript><style>.entry-screen{display:none!important}.profile-stage{visibility:visible!important}</style></noscript>',
     '</body></html>'
   ].join('');
