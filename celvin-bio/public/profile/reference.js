@@ -1,7 +1,7 @@
 (()=>{
   'use strict';
   const backdrop=document.getElementById('dialogBackdrop');
-  const panels={profile:document.getElementById('profileDialog'),contact:document.getElementById('contactDialog')};
+  const panels={profile:document.getElementById('profileDialog'),marlo:document.getElementById('marloDialog'),contact:document.getElementById('contactDialog')};
   const tabToggle=document.getElementById('tabToggle');
   const tabMenu=document.getElementById('tabMenu');
   const entry=document.getElementById('enterProfile');
@@ -40,7 +40,6 @@
     tabMenu.hidden=!next;
     tabToggle.setAttribute('aria-expanded',String(next));
   });
-  document.getElementById('openProfile')?.addEventListener('click',()=>openPanel('profile'));
   document.querySelectorAll('[data-open]').forEach(button=>button.addEventListener('click',()=>openPanel(button.dataset.open)));
   document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',closePanel));
   backdrop.addEventListener('click',closePanel);

@@ -20,6 +20,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #ed6b
 .side-right{right:32px}
 .scene{flex:1;min-height:460px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding:20px 24px 114px}
 .scene-kicker{position:absolute;left:50%;top:18%;transform:translateX(-50%);font-size:9px;letter-spacing:.3em;color:#777}
+.profile-gallery{width:100%;display:flex;align-items:center;justify-content:center;gap:clamp(20px,6vw,90px)}
 .profile-orbit{width:250px;min-height:332px;border:0;padding:0;background:transparent;color:#8a74b8;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;position:relative;top:65px;isolation:isolate;transition:transform .25s ease}
 .profile-orbit:hover{transform:translateY(-5px)}
 .profile-orbit .portrait{display:grid;place-items:center;width:188px;height:188px;border-radius:50%;overflow:hidden;border:4px solid #f7f6f2;box-shadow:0 0 0 1px #545454,0 8px 24px rgba(0,0,0,.18);background:#c9c5c4;filter:grayscale(1);z-index:2}
@@ -80,6 +81,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #ed6b
 .dialog-badges .badge-img{width:15px;height:15px}
 .dialog-panel .discord-presence{max-width:100%}
 .dialog-action{margin-top:20px;border:0;border-bottom:1px solid #222;background:transparent;padding:8px 0;font-size:11px}
+.dialog-panel a.dialog-action{display:inline-block;color:inherit;text-decoration:none}
 .dialog-summary{font-size:9px;color:#777;margin:-14px 0 22px}
 .socials{display:flex;flex-direction:column;gap:4px}
 .socials .link-btn{display:flex;align-items:center;gap:12px;padding:9px 0;border:0;border-bottom:1px solid #d9d9d9;color:#222;text-decoration:none;background:transparent}
@@ -119,8 +121,15 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #ed6b
  .side-note{display:none}
  .scene{min-height:440px;padding-bottom:135px}
  .scene-kicker{top:13%}
- .profile-orbit{top:25px;transform:scale(.9)}
- .profile-orbit:hover{transform:scale(.9) translateY(-5px)}
+ .profile-gallery{gap:10px}
+ .profile-orbit{width:min(45vw,220px);min-height:290px;top:25px}
+ .profile-orbit:hover{transform:translateY(-5px)}
+ .profile-orbit .portrait{width:min(39vw,164px);height:min(39vw,164px)}
+ .profile-orbit .orbit-ring{left:0;width:100%;height:min(49vw,205px)}
+ .profile-orbit .orbit-dot{left:4px}
+ .profile-orbit strong{font-size:12px;margin-top:19px}
+ .profile-orbit .handle{font-size:8px}
+ .profile-orbit small{font-size:7px}
  .scene-caption{bottom:116px;font-size:7px}
  .music-dock{left:10px;right:10px;bottom:50px}
  .soundtrack{max-width:100%;justify-content:center}
