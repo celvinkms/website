@@ -47,6 +47,11 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #ed6b
 .taskbar-domain{font-size:8px;white-space:nowrap}
 .clock{min-width:64px;padding:7px 9px;border:1px solid #888;background:#dfdfdf;text-align:center;font-size:10px}
 .music-dock{position:fixed;right:24px;bottom:52px;z-index:10}
+.spotify-dock{width:min(340px,calc(100vw - 20px));padding:5px;border:1px solid #d7d7d7;border-radius:4px;background:rgba(247,247,247,.92);box-shadow:0 2px 12px rgba(0,0,0,.1);backdrop-filter:blur(7px)}
+.spotify-dock-heading{display:flex;justify-content:space-between;gap:10px;padding:3px 4px 6px;font-size:8px;letter-spacing:.08em}
+.spotify-dock-heading a{color:#111;text-decoration:none}
+.spotify-dock-heading a:hover{text-decoration:underline}
+.spotify-dock iframe{display:block;width:100%;height:152px;border:0;border-radius:2px}
 .soundtrack{display:flex;align-items:center;gap:9px;max-width:min(590px,calc(100vw - 48px));min-height:37px;padding:5px 10px;border:1px solid #d7d7d7;border-radius:4px;background:rgba(247,247,247,.92);box-shadow:0 2px 12px rgba(0,0,0,.1);backdrop-filter:blur(7px);font-size:9px;letter-spacing:0}
 .music-toggle{border:0;background:transparent;font-size:14px;width:22px;height:22px;color:#111;padding:0}
 .music-toggle .pause-symbol{display:none}
