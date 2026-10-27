@@ -1,7 +1,7 @@
 const express = require("express");
 const {createKeepAlive}=require("./keep-alive");
 const keepAlive=createKeepAlive();
-const {renderCleanProfile}=require("./clean-profile");
+const {renderReferenceProfile}=require("./reference-profile");
 const {catalog:discordBadgeCatalog,normalizeDiscordBadges,renderDiscordBadges,renderDiscordBadgeEditor}=require("./discord-badges");
 const {validDiscordId,filterPresence,createPresenceService,renderPresence,renderPresenceAdmin}=require("./discord-presence");
 const discordPresenceService=createPresenceService();
@@ -828,7 +828,7 @@ function renderBioPage(c, req) {
   const embedDesc = (metaDesc || `${linkCount} links • ${badgeCount} badges`).slice(0, 180);
   const siteName = (c.username ? `@${c.username}` : metaTitle) + " • bio";
 
-  if(c.profile_theme === "grunge-emo") return renderCleanProfile(c,{links,badges,publicOrigin:publicUrl(req)});
+  if(c.profile_theme === "grunge-emo") return renderReferenceProfile(c,{links,badges,publicOrigin:publicUrl(req)});
   return `<!DOCTYPE html>
 <html lang="de"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
