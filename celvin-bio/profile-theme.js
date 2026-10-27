@@ -178,6 +178,33 @@ async function applyRequestedProfileImage(pool) {
   } finally {client.release();}
 }
 
+// Apply the owner's new picture and Spotify track once, without changing later Admin edits.
+async function applyRequestedCountMyBandz(pool) {
+  const client=await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const {rows}=await client.query('SELECT id, data FROM bio_config ORDER BY id LIMIT 1 FOR UPDATE');
+    const current=rows[0];
+    if(current&&current.data._profile_count_my_bandz_20261027!=='applied'){
+      await client.query('INSERT INTO bio_snapshots(label,data) VALUES($1,$2)',['Vor neuem Profilbild und Spotify-Track',current.data]);
+      const update={
+        _profile_count_my_bandz_20261027:'applied',
+        avatar_type:'image',
+        avatar_url:'/profile/profile-2026-10-27.jpg',
+        spotify_url:'https://open.spotify.com/track/3aZcNxiTgOOtyIw5aRxXik',
+        youtube_url:'',
+        audio_url:'',
+        audio_title:'Rich Amiri — COUNT MY BANDZ'
+      };
+      await client.query('UPDATE bio_config SET data = data || $1::jsonb WHERE id = $2',[JSON.stringify(update),current.id]);
+    }
+    await client.query('COMMIT');
+  } catch(error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {client.release();}
+}
+
 function youtubePlayer(config) {
   const id = youtubeVideoId(config.youtube_url);
   if (!id) return '';
@@ -186,4 +213,4 @@ function youtubePlayer(config) {
   return `<section class="profile-music" aria-label="Profil-Song"><div class="profile-music-label"><span>${title}</span><span>♫</span></div><iframe title="Profil-Song auf YouTube" src="https://www.youtube-nocookie.com/embed/${id}?playsinline=1&autoplay=0&rel=0${repeat}" width="100%" height="240" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe><a href="https://www.youtube.com/watch?v=${id}" target="_blank" rel="noopener noreferrer">Auf YouTube öffnen ↗</a></section>`;
 }
 
-module.exports = { GRUNGE_PRESET, applyRequestedTheme, applyRequestedSharpBackground, applyRequestedPinterestBackground, applyRequestedSong, applyRequestedBassEdit, applyRequestedNobuSong, applyRequestedBeatPlayback, applyRequestedProfileImage, youtubeVideoId, youtubePlayer };
+module.exports = { GRUNGE_PRESET, applyRequestedTheme, applyRequestedSharpBackground, applyRequestedPinterestBackground, applyRequestedSong, applyRequestedBassEdit, applyRequestedNobuSong, applyRequestedBeatPlayback, applyRequestedProfileImage, applyRequestedCountMyBandz, youtubeVideoId, youtubePlayer };
