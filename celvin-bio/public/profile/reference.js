@@ -1,7 +1,7 @@
 (()=>{
   'use strict';
   const backdrop=document.getElementById('dialogBackdrop');
-  const panels={profile:document.getElementById('profileDialog'),marlo:document.getElementById('marloDialog'),contact:document.getElementById('contactDialog')};
+  const panels={profile:document.getElementById('profileDialog'),marlo:document.getElementById('marloDialog'),atakan:document.getElementById('atakanDialog'),contact:document.getElementById('contactDialog')};
   const tabToggle=document.getElementById('tabToggle');
   const tabMenu=document.getElementById('tabMenu');
   const entry=document.getElementById('enterProfile');

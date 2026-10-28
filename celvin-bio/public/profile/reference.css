@@ -20,7 +20,7 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #ed6b
 .side-right{right:32px}
 .scene{flex:1;min-height:460px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding:20px 24px 114px}
 .scene-kicker{position:absolute;left:50%;top:18%;transform:translateX(-50%);font-size:9px;letter-spacing:.3em;color:#777}
-.profile-gallery{width:100%;display:flex;align-items:center;justify-content:center;gap:clamp(20px,6vw,90px)}
+.profile-gallery{width:100%;display:flex;align-items:center;justify-content:center;gap:clamp(20px,4vw,60px)}
 .profile-orbit{width:250px;min-height:332px;border:0;padding:0;background:transparent;color:#8a74b8;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;position:relative;top:65px;isolation:isolate;transition:transform .25s ease}
 .profile-orbit:hover{transform:translateY(-5px)}
 .profile-orbit .portrait{display:grid;place-items:center;width:188px;height:188px;border-radius:50%;overflow:hidden;border:4px solid #f7f6f2;box-shadow:0 0 0 1px #545454,0 8px 24px rgba(0,0,0,.18);background:#c9c5c4;filter:grayscale(1);z-index:2}
@@ -30,6 +30,9 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #ed6b
 .profile-orbit:hover .orbit-ring{transform:rotate(18deg) scale(1.02)}
 .orbit-dot{position:absolute;left:15px;top:20px;width:5px;height:5px;border-radius:50%;background:#a785d4;box-shadow:0 0 10px #a785d4}
 .profile-orbit strong{margin-top:21px;font-size:15px;letter-spacing:.2em;text-transform:uppercase;font-weight:400}
+.profile-orbit .name-with-badge{display:flex;align-items:center;gap:7px;margin-top:21px}
+.profile-orbit .name-with-badge strong{margin-top:0}
+.profile-orbit .name-with-badge img{width:18px;height:18px;object-fit:contain}
 .profile-orbit .handle{font-size:10px;margin-top:8px;letter-spacing:.12em}
 .profile-orbit small{font-size:8px;color:#5c5c5c;margin-top:11px;letter-spacing:.22em}
 .scene-caption{position:absolute;bottom:93px;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:8px;letter-spacing:.2em;color:#444}
@@ -77,6 +80,8 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #ed6b
 .dialog-avatar .avatar-emoji{font-size:38px}
 .dialog-bio{font-size:13px;line-height:1.6;letter-spacing:.04em;margin:24px 0 16px;white-space:pre-line}
 .dialog-badges{display:flex;flex-wrap:wrap;gap:5px;margin:16px 0}
+.dialog-badges .discord-badge-row{width:auto;justify-content:flex-start;margin-top:0}
+.dialog-badges .badge-caption{align-self:center;font-size:9px;letter-spacing:.17em;text-transform:uppercase;color:#555}
 .dialog-badges .badge{font-size:9px;border:1px solid #bbb;padding:4px 7px;border-radius:4px;color:#333}
 .dialog-badges .badge-img{width:15px;height:15px}
 .dialog-panel .discord-presence{max-width:100%}
@@ -113,23 +118,32 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #ed6b
 .boot-corner{position:absolute;right:28px;bottom:23px;font-size:8px;color:#aaa}
 .entry-screen.leaving{opacity:0;pointer-events:none;transition:opacity .65s}
 @keyframes bootBlink{50%{opacity:.45}}
+@media(min-width:701px) and (max-width:950px){
+ .profile-gallery{gap:clamp(12px,3vw,28px)}
+ .profile-orbit{width:200px;min-height:300px}
+ .profile-orbit .portrait{width:160px;height:160px}
+ .profile-orbit .orbit-ring{left:10px;width:180px;height:220px}
+ .profile-orbit .orbit-dot{left:8px}
+}
 @media(max-width:700px){
  .ambient{background-size:auto 115%;background-position:center bottom}
  .topline{height:62px;padding:16px 15px 0}
  .topline h1{font-size:31px;margin:-4px 0 0}
  .page-count,.online-mark{font-size:7px}
  .side-note{display:none}
- .scene{min-height:440px;padding-bottom:135px}
+ .scene{min-height:440px;padding:20px 8px 135px}
  .scene-kicker{top:13%}
- .profile-gallery{gap:10px}
- .profile-orbit{width:min(45vw,220px);min-height:290px;top:25px}
+ .profile-gallery{gap:8px}
+ .profile-orbit{width:min(30vw,190px);min-height:250px;top:25px}
  .profile-orbit:hover{transform:translateY(-5px)}
- .profile-orbit .portrait{width:min(39vw,164px);height:min(39vw,164px)}
- .profile-orbit .orbit-ring{left:0;width:100%;height:min(49vw,205px)}
+ .profile-orbit .portrait{width:min(27vw,150px);height:min(27vw,150px)}
+ .profile-orbit .orbit-ring{left:0;width:100%;height:min(38vw,185px)}
  .profile-orbit .orbit-dot{left:4px}
- .profile-orbit strong{font-size:12px;margin-top:19px}
- .profile-orbit .handle{font-size:8px}
- .profile-orbit small{font-size:7px}
+ .profile-orbit strong{font-size:11px;margin-top:17px}
+ .profile-orbit .name-with-badge{gap:3px;margin-top:17px}
+ .profile-orbit .name-with-badge img{width:14px;height:14px}
+ .profile-orbit .handle{font-size:7px;letter-spacing:.04em}
+ .profile-orbit small{font-size:6px}
  .scene-caption{bottom:116px;font-size:7px}
  .music-dock{left:10px;right:10px;bottom:50px}
  .soundtrack{max-width:100%;justify-content:center}
