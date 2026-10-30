@@ -65,7 +65,7 @@
  function pause(){requested=false;audio?.pause();if(player&&ready)player.pauseVideo();setState(false);message('');}
  toggle.addEventListener('click',()=>{if(playing||requested)pause();else play();});
  window.addEventListener('profile:enter',play);
- volume.addEventListener('input',setVolume);setVolume();
+ volume.addEventListener('input',setVolume);volume.value=volume.defaultValue;setVolume();
  seek.addEventListener('input',()=>{scrubbing=true;seek.style.setProperty('--progress',seek.value+'%');const d=audio?audio.duration:player?.getDuration?.();card.querySelector('[data-current-time]').textContent=time(d*Number(seek.value)/100);});
  seek.addEventListener('change',()=>{const d=audio?audio.duration:player?.getDuration?.();const target=d*Number(seek.value)/100;if(Number.isFinite(target)){if(audio)audio.currentTime=target;else if(ready)player.seekTo?.(target,true);}scrubbing=false;update();});
  if(audio){audio.addEventListener('playing',()=>{requested=true;message('');setState(true);});audio.addEventListener('pause',()=>setState(false));audio.addEventListener('ended',()=>{requested=false;setState(false);});audio.addEventListener('loadedmetadata',update);audio.addEventListener('error',()=>{requested=false;setState(false);message('Die Audiodatei konnte nicht geladen werden.');});}
