@@ -35,7 +35,7 @@ function renderReferenceProfile(c,{links='',badges='',publicOrigin='https://celv
     '<button type="button" class="music-toggle" aria-label="Musik abspielen" aria-pressed="false"><span class="play-symbol" aria-hidden="true">▶</span><span class="pause-symbol" aria-hidden="true">Ⅱ</span></button>',
     '<div class="song-copy"><strong>'+esc(c.audio_title||'Mein Soundtrack')+'</strong><span data-player-state>Bereit</span></div>',
     '<div class="seek-row"><span data-current-time>0:00</span><label class="sr-only" for="musicSeek">Wiedergabeposition</label><input id="musicSeek" type="range" min="0" max="100" step="0.1" value="0" disabled><span data-duration>–:––</span></div>',
-    '<label class="volume-control" for="musicVolume"><span class="sr-only">Lautstärke</span><span aria-hidden="true">◖</span><input id="musicVolume" type="range" min="0" max="100" value="'+Math.round(Math.max(0,Math.min(1,Number(c.audio_volume??.5)))*100)+'"></label>',
+    '<label class="volume-control" for="musicVolume"><span class="sr-only">Lautstärke</span><span aria-hidden="true">◖</span><input id="musicVolume" type="range" min="0" max="100" value="'+Math.round(Math.max(0,Math.min(1,Number(c.audio_volume??.08)))*100)+'"></label>',
     '<div class="soundtrack-player">'+(music||audio)+'</div>',
     '</section>'
   ].join(''):'';
@@ -63,7 +63,7 @@ function renderReferenceProfile(c,{links='',badges='',publicOrigin='https://celv
     '<section class="dialog-panel" id="contactDialog" role="dialog" aria-modal="true" aria-labelledby="contactTitle" hidden><button type="button" class="dialog-close" data-close aria-label="Schließen">[ close ]</button><p class="dialog-eyebrow">CELVIN.RIP / CONTACT</p><h2 id="contactTitle">open channels</h2><p class="dialog-summary">'+socialCount+' '+(socialCount===1?'link':'links')+'</p><nav class="socials" aria-label="Social Links">'+links+'</nav></section>',
     '<div id="copyStatus" role="status" aria-live="polite"></div>',
     '</div>',
-    '<script src="/profile/clean.js?v=beat-2"></script><script src="/profile/discord-presence.js?v=discord-live-15"></script><script src="/profile/reference.js?v=5"></script>',
+    '<script src="/profile/clean.js?v=quiet-entry-1"></script><script src="/profile/discord-presence.js?v=discord-live-15"></script><script src="/profile/reference.js?v=5"></script>',
     '<noscript><style>.entry-screen{display:none!important}.profile-stage{visibility:visible!important}</style></noscript>',
     '</body></html>'
   ].join('');

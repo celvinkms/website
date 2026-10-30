@@ -13,7 +13,7 @@ const zlib = require("zlib");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { applyRequestedTheme, applyRequestedSharpBackground, applyRequestedPinterestBackground, applyRequestedSong, applyRequestedBassEdit, applyRequestedNobuSong, applyRequestedBeatPlayback, applyRequestedProfileImage, applyRequestedCountMyBandz, applyRequestedLocalCountMyBandz, youtubeVideoId, youtubePlayer } = require("./profile-theme");
+const { applyRequestedTheme, applyRequestedSharpBackground, applyRequestedPinterestBackground, applyRequestedSong, applyRequestedBassEdit, applyRequestedNobuSong, applyRequestedBeatPlayback, applyRequestedProfileImage, applyRequestedCountMyBandz, applyRequestedLocalCountMyBandz, applyRequestedQuietEntryVolume, youtubeVideoId, youtubePlayer } = require("./profile-theme");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -112,7 +112,7 @@ const DEFAULT_CONFIG = {
     { platform: "instagram", username: "yourusername",custom_url: "" },
     { platform: "twitter",   username: "yourusername",custom_url: "" },
   ],
-  spotify_url: "", audio_url: "", audio_autoplay: false, audio_loop: true, audio_volume: 0.5, audio_title: "", bg_video_url: "", bg_overlay_opacity: 0.3, bg_blur_amount: 0, card_shadow: true, show_song_widget: false, custom_css: "", meta_title: "", meta_description: "", favicon_url: "", custom_head: "", custom_js: "", badge_style: "pill", profile_layout: "center", page_width: "440", card_radius: "24", avatar_size: "90", feature_flags: {}, views: 0,
+  spotify_url: "", audio_url: "", audio_autoplay: false, audio_loop: true, audio_volume: 0.08, audio_title: "", bg_video_url: "", bg_overlay_opacity: 0.3, bg_blur_amount: 0, card_shadow: true, show_song_widget: false, custom_css: "", meta_title: "", meta_description: "", favicon_url: "", custom_head: "", custom_js: "", badge_style: "pill", profile_layout: "center", page_width: "440", card_radius: "24", avatar_size: "90", feature_flags: {}, views: 0,
   analytics_enabled: true, click_tracking: true, announcement_enabled: false, announcement_text: "", announcement_url: "",
   entry_enabled: true, entry_text: "click", entry_bg_color: "#050404", entry_text_color: "#eeeeee", entry_text_size: 20, entry_bg_image: "", entry_bg_video: "", entry_bg_type: "", entry_bg_opacity: 0.35, entry_bg_blur: 0, bg_use_avatar: true,
   enter_screen_enabled: false, enter_screen_text: "click here :3", share_bar_enabled: true, copy_button_enabled: true, theme_toggle_enabled: false,
@@ -150,6 +150,7 @@ async function initDB() {
   await applyRequestedProfileImage(pool);
   await applyRequestedCountMyBandz(pool);
   await applyRequestedLocalCountMyBandz(pool);
+  await applyRequestedQuietEntryVolume(pool);
 }
 async function getConfig() {
   const { rows } = await pool.query("SELECT data FROM bio_config LIMIT 1");
@@ -751,7 +752,7 @@ function renderBioPage(c, req) {
         </div>
         <div class="aw-vol">
           <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
-          <input type="range" id="awVol" min="0" max="1" step="0.05" value="${c.audio_volume||0.5}" oninput="document.getElementById('bgAudio').volume=this.value" style="width:90px;accent-color:var(--a)">
+          <input type="range" id="awVol" min="0" max="1" step="0.01" value="${c.audio_volume??0.08}" oninput="document.getElementById('bgAudio').volume=this.value" style="width:90px;accent-color:var(--a)">
         </div>
       </div>
     </div>
@@ -787,7 +788,7 @@ function renderBioPage(c, req) {
     var _aud = document.getElementById('bgAudio');
     var _bars = document.getElementById('awBars');
     var _overlay = document.getElementById('click-to-enter');
-    _aud.volume = ${c.audio_volume||0.5};
+    _aud.volume = ${c.audio_volume??0.08};
     function _setPlaying(on){document.getElementById('awIconPlay').style.display=on?'none':'';document.getElementById('awIconPause').style.display=on?'':'none';_bars.classList.toggle('paused',!on);}
     function toggleAudio(){if(_aud.paused){_aud.play().then(function(){_setPlaying(true);}).catch(function(){});}else{_aud.pause();_setPlaying(false);}}
     _aud.addEventListener('play',function(){_setPlaying(true);});
@@ -1838,8 +1839,8 @@ input[type=text],input[type=url],input[type=password],textarea,select{background
     <div class="fi"><label>Song Name (wird angezeigt)</label><input type="text" id="audio_title" value="${c.audio_title||""}" placeholder="♫ Song - Artist"></div>
     <div class="fi"><label>Standard-Lautstärke (0–1)</label>
       <div style="display:flex;align-items:center;gap:10px;">
-        <input type="range" id="audio_volume" min="0" max="1" step="0.05" value="${c.audio_volume||0.5}" style="flex:1;accent-color:var(--a)">
-        <span style="font-family:monospace;font-size:12px;color:var(--m);width:30px;">${Math.round((c.audio_volume||0.5)*100)}%</span>
+        <input type="range" id="audio_volume" min="0" max="1" step="0.01" value="${c.audio_volume??0.08}" style="flex:1;accent-color:var(--a)">
+        <span style="font-family:monospace;font-size:12px;color:var(--m);width:30px;">${Math.round((c.audio_volume??0.08)*100)}%</span>
       </div>
     </div>
     <div class="tr"><div><div class="tl">Autoplay</div><div class="td">Startet automatisch (Browser blockieren das oft)</div></div><label class="sw"><input type="checkbox" id="audio_autoplay" ${c.audio_autoplay?"checked":""}><span class="sl"></span></label></div>
