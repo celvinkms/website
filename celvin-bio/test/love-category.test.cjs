@@ -4,9 +4,13 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {renderReferenceProfile}=require('../reference-profile');
 
-test('love category gives celvin and mey separate adjacent panels',()=>{
+test('love and friends are separate groups with the requested people',()=>{
   const html=renderReferenceProfile({username:'celvin',avatar_type:'image',avatar_url:'/profile/profile-2026-10-27.jpg'});
-  const love=html.slice(html.indexOf('<section class="love-category"'),html.indexOf('data-open="atakan"'));
+  const loveStart=html.indexOf('<section class="love-category"');
+  const friendsStart=html.indexOf('<section class="friends-category"');
+  const love=html.slice(loveStart,friendsStart);
+  const friends=html.slice(friendsStart,html.indexOf('</div><p class="scene-caption">',friendsStart));
+  assert.ok(loveStart>=0&&friendsStart>loveStart);
   assert.match(love,/id="loveTitle">love<\/h2>/);
   assert.match(love,/<section class="love-person" aria-labelledby="celvinCategory"><h3 id="celvinCategory">01 \/ celvin<\/h3>/);
   assert.match(love,/<section class="love-person" aria-labelledby="meyCategory"><h3 id="meyCategory">02 \/ mey<\/h3>/);
@@ -14,10 +18,14 @@ test('love category gives celvin and mey separate adjacent panels',()=>{
   assert.match(love,/mey-profile-v2\.png/);
   assert.ok(!love.includes('data-open="marlo"'));
   assert.ok(!love.includes('data-open="atakan"'));
+  assert.match(friends,/id="friendsTitle">friends<\/h2>/);
+  assert.ok(friends.indexOf('data-open="marlo"')<friends.indexOf('data-open="atakan"'));
+  assert.doesNotMatch(friends,/data-open="profile"|data-open="mey"/);
   assert.doesNotMatch(html,/mysme|510575054275346462/);
   assert.ok(fs.statSync(path.join(__dirname,'../public/profile/mey-profile-v2.png')).size>0);
   assert.match(html,/cat-background-v1\.png/);
   assert.ok(fs.statSync(path.join(__dirname,'../public/profile/cat-background-v1.png')).size>0);
   const css=fs.readFileSync(path.join(__dirname,'../public/profile/reference.css'),'utf8');
   assert.match(css,/\.ambient\{background:linear-gradient[^}]+cat-background-v1\.png/);
+  assert.match(css,/\.profile-gallery\{width:min\(100%,920px\);display:flex;flex-direction:column/);
 });
