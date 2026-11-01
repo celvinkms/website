@@ -207,3 +207,36 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline-color:#f4b7c3}
  .love-person h3{margin-bottom:12px;padding:0 4px 9px;font-size:8px}
  .love-person .profile-orbit{min-height:220px}
 }
+
+/* Keep the two groups in separate rows, with friends visually quieter. */
+.scene{min-height:870px;justify-content:flex-start;padding:35px 24px 135px}
+.scene-kicker{position:static;transform:none;margin:0 0 52px}
+.profile-gallery{width:min(100%,920px);display:flex;flex-direction:column;align-items:center;gap:58px}
+.love-category{top:0}
+.friends-category{position:relative;padding:27px 15px 2px;border:1px solid rgba(255,221,224,.25);border-radius:20px;background:rgba(21,17,21,.58);box-shadow:0 16px 50px rgba(0,0,0,.22);backdrop-filter:blur(15px)}
+.friends-category h2{position:absolute;left:50%;top:-16px;transform:translateX(-50%);margin:0;padding:5px 14px;border:1px solid rgba(246,191,199,.45);border-radius:999px;background:rgba(27,20,24,.9);color:#f5c8cf;font-size:10px;font-weight:400;letter-spacing:.3em;text-transform:uppercase;white-space:nowrap}
+.friends-pair{display:flex;align-items:start;justify-content:center;gap:16px}
+.friends-pair .profile-orbit{top:0;width:155px;min-height:210px}
+.friends-pair .portrait{width:108px;height:108px;border-width:3px}
+.friends-pair .orbit-ring{left:9%;width:82%;height:148px}
+.friends-pair .orbit-dot{left:11px;top:10px}
+.friends-pair .profile-orbit strong,.friends-pair .profile-orbit .name-with-badge{margin-top:13px;font-size:12px}
+.friends-pair .profile-orbit .name-with-badge strong{margin-top:0}
+.friends-pair .profile-orbit .handle{font-size:8px;margin-top:7px}
+.friends-pair .profile-orbit small{font-size:7px;margin-top:9px}
+.scene-caption{position:static;transform:none;margin:42px 0 0}
+@media(max-width:700px){
+ .scene{min-height:780px;padding:56px 8px 150px}
+ .scene-kicker{margin-bottom:42px}
+ .profile-gallery{width:min(100%,390px);display:flex;flex-direction:column;gap:48px}
+ .love-category{width:100%;padding:0}
+ .friends-category{width:100%;padding:26px 6px 0}
+ .friends-pair{gap:7px}
+ .friends-pair .profile-orbit{flex:1;width:auto;min-width:0;min-height:195px}
+ .friends-pair .portrait{width:min(29vw,108px);height:min(29vw,108px)}
+ .friends-pair .orbit-ring{left:7%;width:86%;height:140px}
+ .friends-pair .profile-orbit strong,.friends-pair .profile-orbit .name-with-badge{font-size:10px}
+ .friends-pair .profile-orbit .handle{font-size:7px}
+ .friends-pair .profile-orbit small{font-size:6px}
+ .scene-caption{margin-top:34px}
+}
