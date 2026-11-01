@@ -159,3 +159,51 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #ed6b
 }
 @media(max-width:390px){.song-copy{display:none}.seek-row input{width:60px}.volume-control input{width:40px}}
 @media(prefers-reduced-motion:reduce){.profile-orbit,.orbit-ring,.entry-screen,#copyStatus{transition:none!important;animation:none!important}.boot-lines>span,.boot-proceed,.boot-proceed>span{animation:none!important;opacity:1!important;visibility:visible!important;transform:none!important}}
+
+/* Palette drawn from the new cat photograph: ink, soft ivory, and muted pink. */
+html,body{background:#141113;color:#f8edec}
+button:focus-visible,a:focus-visible,input:focus-visible{outline-color:#f4b7c3}
+.ambient{background:linear-gradient(90deg,rgba(10,8,10,.78),rgba(14,10,13,.46) 48%,rgba(12,9,11,.67)),url('/profile/cat-background-v1.png') center 48% / cover no-repeat;background-color:#171215}
+.paper-grain{opacity:.18;background:repeating-linear-gradient(0deg,rgba(255,241,242,.08) 0 1px,transparent 1px 4px)}
+.topline h1{color:#fff8f6;text-shadow:0 2px 20px rgba(0,0,0,.6)}
+.page-count,.online-mark,.side-note,.scene-kicker,.scene-caption{color:#e1d4d2;text-shadow:0 1px 6px #090709}
+.scene-kicker{letter-spacing:.32em}
+.profile-gallery{gap:clamp(16px,2.2vw,32px)}
+.love-category{top:50px;padding:0;background:none;border:0}
+.love-category h2{top:-39px;border-color:rgba(246,191,199,.5);background:rgba(27,20,24,.87);color:#f5c8cf;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.love-pair{gap:clamp(12px,1.5vw,20px);align-items:stretch}
+.love-person{width:clamp(158px,17vw,226px);min-height:360px;padding:15px 10px 14px;border:1px solid rgba(255,221,224,.33);border-radius:20px;background:linear-gradient(155deg,rgba(41,31,36,.81),rgba(20,16,20,.76));box-shadow:0 16px 55px rgba(0,0,0,.33),inset 0 1px 0 rgba(255,255,255,.11);backdrop-filter:blur(17px);display:flex;flex-direction:column;align-items:center}
+.love-person h3{align-self:stretch;margin:0 0 15px;padding:0 3px 12px;border-bottom:1px solid rgba(255,221,224,.17);font-size:9px;font-weight:400;letter-spacing:.2em;text-transform:uppercase;color:#f5c8cf}
+.love-person .profile-orbit{top:0;width:100%;min-height:285px}
+.profile-orbit{color:#f0d3d8}
+.profile-orbit .portrait{border-color:#f7e8e4;box-shadow:0 0 0 1px rgba(249,205,211,.7),0 12px 36px rgba(0,0,0,.45);background:#352a2c}
+.orbit-ring{border-color:rgba(247,196,206,.66)}
+.orbit-dot{background:#f5b7c4;box-shadow:0 0 12px #f5b7c4}
+.profile-orbit small{color:#d0c0c1}
+.taskbar{background:rgba(30,25,29,.93);border-top:1px solid rgba(255,235,235,.22);box-shadow:0 -8px 35px rgba(0,0,0,.25);color:#eee0e0;backdrop-filter:blur(16px)}
+.tab-label{border-color:#8c747a;background:linear-gradient(#52434a,#2a2328);color:#fff0ef}
+.tab-menu{border-color:#8c747a;background:#2b242a;box-shadow:4px 4px 0 rgba(0,0,0,.4)}
+.tab-menu button{color:#f7e8e7}.tab-menu button:hover{background:#523f47}
+.clock{border-color:#806d72;background:#3a3035;color:#f7e8e7}
+.system-status i{background:#d9b5bc;box-shadow:0 0 8px #ecc4cc}
+.soundtrack{border-color:rgba(255,217,225,.27);background:rgba(32,25,30,.89);color:#faedeb;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.music-toggle{color:#faedeb}.song-copy [data-player-state]{color:#c9b7bb}.soundtrack input[type=range]{accent-color:#edb8c4}
+.dialog-backdrop{background:rgba(9,7,9,.58)}
+.dialog-panel{border-color:rgba(255,221,224,.38);background:rgba(30,25,29,.97);color:#faefec;box-shadow:8px 9px 0 rgba(0,0,0,.35)}
+.dialog-eyebrow,.dialog-profile-head p,.dialog-summary{color:#d0afb8}.dialog-close{color:#f7e8e6}
+.dialog-avatar{background:#41363b;border-color:#e1c3c8}
+.dialog-badges .badge-caption,.dialog-badges .badge{color:#e8d7d8}.dialog-badges .badge{border-color:#85737a}
+.dialog-action{color:#f7e8e6;border-color:#e9c2ca}.socials .link-btn{color:#f7e8e6;border-color:#55464c}.socials .link-platform{color:#d0afb8}
+.dialog-panel .discord-presence{background:#322a2f;border-color:#68545d;color:#f7e8e6}
+.dialog-panel .discord-presence-identity>span,.dialog-panel .discord-custom-status,.dialog-panel .discord-updated{color:#d3b8c0}
+.dialog-panel .discord-activity strong,.dialog-panel .discord-spotify strong{color:#f7e8e6}
+.entry-screen{background:#0d0a0c;color:#faeeee}.boot-proceed{border-color:#b98c98}.boot-corner{color:#cfaeb9}
+@media(max-width:700px){
+ .ambient{background-position:center 45%;background-size:cover}
+ .love-category{top:0;padding:24px 0 0}
+ .love-category h2{top:-16px}
+ .love-pair{gap:10px}
+ .love-person{width:auto;flex:1;min-width:0;min-height:275px;padding:10px 5px 7px;border-radius:15px}
+ .love-person h3{margin-bottom:12px;padding:0 4px 9px;font-size:8px}
+ .love-person .profile-orbit{min-height:220px}
+}
