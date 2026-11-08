@@ -2,6 +2,7 @@ const express = require("express");
 const {createKeepAlive}=require("./keep-alive");
 const keepAlive=createKeepAlive();
 const {renderReferenceProfile}=require("./reference-profile");
+const {applyRequestedDiscordAvatar}=require("./discord-avatar-update");
 const {catalog:discordBadgeCatalog,normalizeDiscordBadges,renderDiscordBadges,renderDiscordBadgeEditor}=require("./discord-badges");
 const {validDiscordId,filterPresence,createPresenceService,renderPresence,renderPresenceAdmin}=require("./discord-presence");
 const discordPresenceService=createPresenceService();
@@ -152,6 +153,7 @@ async function initDB() {
   await applyRequestedLocalCountMyBandz(pool);
   await applyRequestedQuietEntryVolume(pool);
   await applyRequestedMuseHook(pool);
+  await applyRequestedDiscordAvatar(pool);
 }
 async function getConfig() {
   const { rows } = await pool.query("SELECT data FROM bio_config LIMIT 1");
