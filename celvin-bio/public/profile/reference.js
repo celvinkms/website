@@ -7,7 +7,7 @@
   const entry=document.getElementById('enterProfile');
   if(entry){
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    window.setTimeout(()=>{entry.disabled=false;},reducedMotion?0:2900);
+    window.setTimeout(()=>{entry.disabled=false;},reducedMotion?0:1600);
   }
   let active=null;
   let returnFocus=null;
@@ -19,7 +19,10 @@
   function openPanel(kind){
     const panel=panels[kind];
     if(!panel)return;
-    if(!active)returnFocus=document.activeElement;
+    if(!active){
+      const source=document.activeElement;
+      returnFocus=tabMenu.contains(source)?tabToggle:source;
+    }
     Object.values(panels).forEach(item=>item.hidden=true);
     panel.hidden=false;
     backdrop.hidden=false;
