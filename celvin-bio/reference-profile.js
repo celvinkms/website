@@ -26,7 +26,7 @@ function renderReferenceProfile(c,{links='',badges='',publicOrigin='https://celv
   const atakanDiscord='https://discord.com/users/'+atakanId;
   const atakanNitro=renderDiscordBadges(['nitro']);
   const atakanCard=profileCard('atakan','atakan',atakanAvatar,'discord / 42 atakan','<img src="/profile/discord-badges/nitro.png" width="18" height="18" alt="Nitro-Badge">');
-  const meyAvatar='<img src="/profile/mey-profile-v2.png" width="188" height="188" alt="Profilbild von mey">';
+  const meyAvatar='<img src="/profile/mey-profile-v3.png" width="188" height="188" alt="Profilbild von mey">';
   const meyCard=profileCard('mey','mey',meyAvatar,'my favorite person');
   const entry=c.entry_enabled!==false;
   const presence=renderPresence(c);

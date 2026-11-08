@@ -15,12 +15,12 @@ test('love and friends are separate groups with the requested people',()=>{
   assert.match(love,/aria-labelledby="loveTitle"/);
   assert.match(love,/<h2\b[^>]*\bid="loveTitle"[^>]*>\s*love\s*<\/h2>/);
   assert.deepEqual([...love.matchAll(/data-open="([^"]+)"/g)].map(match=>match[1]),['profile','mey']);
-  assert.match(love,/mey-profile-v2\.png/);
+  assert.match(love,/mey-profile-v3\.png/);
   assert.match(friends,/aria-labelledby="friendsTitle"/);
   assert.match(friends,/<h2\b[^>]*\bid="friendsTitle"[^>]*>\s*friends\s*<\/h2>/);
   assert.deepEqual([...friends.matchAll(/data-open="([^"]+)"/g)].map(match=>match[1]),['marlo','atakan']);
   assert.doesNotMatch(html,/mysme|510575054275346462/);
-  assert.ok(fs.statSync(path.join(__dirname,'../public/profile/mey-profile-v2.png')).size>0);
+  assert.ok(fs.statSync(path.join(__dirname,'../public/profile/mey-profile-v3.png')).size>0);
   assert.match(html,/cat-background-v1\.png/);
   assert.ok(fs.statSync(path.join(__dirname,'../public/profile/cat-background-v1.png')).size>0);
 });
