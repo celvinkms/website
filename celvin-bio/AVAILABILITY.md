@@ -32,7 +32,7 @@ It stays disabled during local development. Optional environment variables:
 are enabled/running, their interval, last attempt/success and consecutive failures.
 It reveals no environment secrets or configured target URL. Cache-control headers
 and a per-request query string prevent a cached edge response from being mistaken
-for a running Express instance.
+for a running bio server.
 
 ## Limits and stronger options
 

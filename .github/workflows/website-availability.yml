@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Check the live Express instance without recording a profile view
+      - name: Check the live bio server
         env:
           CHECK_ID: ${{ github.run_id }}
         shell: bash
