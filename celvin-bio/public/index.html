@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#161716">
+  <title>Celvin — celvin.rip</title>
+  <meta name="description" content="Celvins persönliche Bio und Links zu Discord und GitHub.">
+  <link rel="canonical" href="https://celvin.rip/">
+  <meta property="og:type" content="profile">
+  <meta property="og:title" content="Celvin">
+  <meta property="og:description" content="Mein Platz im Netz.">
+  <meta property="og:url" content="https://celvin.rip/">
+  <meta property="og:image" content="https://celvin.rip/assets/celvin.png">
+  <meta property="og:image:alt" content="Celvins Profilbild">
+  <link rel="icon" href="/assets/favicon.png" type="image/png">
+  <link rel="preload" href="/assets/barlow-condensed-800.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/assets/bio.css">
+  <script src="/assets/bio.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="celvin.rip, Startseite">
+        <span class="brand-mark" aria-hidden="true"></span>
+        celvin<span class="domain-end">.rip</span>
+      </a>
+      <button class="share" type="button" hidden>
+        <span class="copy-icon" aria-hidden="true"></span>
+        <span class="share-label">Link kopieren</span>
+      </button>
+      <span class="sr-only" role="status" id="share-status"></span>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="name">
+        <div class="intro">
+          <p class="greeting">Hi, ich bin</p>
+          <h1 id="name">Celvin<span aria-hidden="true">.</span></h1>
+          <p class="bio">Mein Platz im Netz.</p>
+        </div>
+        <div class="visual">
+          <div class="portrait">
+            <img src="/assets/celvin.png" alt="Celvins Profilbild, eine Schwarzweißaufnahme bei Nacht" width="512" height="512" fetchpriority="high">
+          </div>
+          <span class="registration" aria-hidden="true"></span>
+        </div>
+      </section>
+
+      <section class="links" aria-labelledby="links-title">
+        <h2 id="links-title">Meine Links</h2>
+        <ul>
+          <li>
+            <a href="https://discord.com/users/200470371881844737">
+              <span class="platform">Discord</span>
+              <span class="address">Profil öffnen</span>
+              <span class="link-mark" aria-hidden="true"></span>
+            </a>
+          </li>
+          <li>
+            <a href="https://github.com/celvinkms">
+              <span class="platform">GitHub</span>
+              <span class="address">@celvinkms</span>
+              <span class="link-mark" aria-hidden="true"></span>
+            </a>
+          </li>
+        </ul>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>© Celvin</span>
+      <span class="footer-stripes" aria-hidden="true"></span>
+    </footer>
+  </div>
+</body>
+</html>
